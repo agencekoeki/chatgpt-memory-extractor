@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Memory Debug Assistant 🔬",
+  "name": "ChatGPT Memory Extractor 🧠",
   "version": "2.0.0",
-  "description": "Assistant de debug pour comprendre et extraire la mémoire ChatGPT",
+  "description": "Assistant intelligent pour extraire votre mémoire ChatGPT",
   "permissions": [
     "activeTab",
     "storage",

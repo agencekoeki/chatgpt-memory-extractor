@@ -224,7 +224,7 @@ function findModal() {
 }
 
 // Analyser le contenu de la modale
-function analyzeModalContent(modal) {
+async function analyzeModalContent(modal) {
   debugLog('📊 Analyse du contenu de la modale...');
   
   // Compter les éléments
@@ -238,18 +238,144 @@ function analyzeModalContent(modal) {
   
   debugLog('📈 Statistiques de la modale:', stats);
   
-  // Rechercher les patterns de souvenirs
-  const memoryPatterns = findMemoryPatterns(modal);
+  // IMPORTANT: Scroller dans la modale pour charger tous les souvenirs
+  const memories = await extractAllMemoriesWithScroll(modal);
   
-  if (memoryPatterns.length > 0) {
-    debugLog(`✅ ${memoryPatterns.length} souvenirs potentiels trouvés!`, memoryPatterns, 'success');
-    debugState.memoryData = memoryPatterns;
+  if (memories.length > 0) {
+    debugLog(`✅ ${memories.length} souvenirs extraits!`, memories, 'success');
+    debugState.memoryData = memories;
   } else {
-    debugLog('⚠️ Aucun pattern de souvenir détecté', null, 'warning');
-    
-    // Mode exploration : afficher tous les textes
+    debugLog('⚠️ Aucun souvenir détecté', null, 'warning');
+    // Mode exploration
     exploreModalTexts(modal);
   }
+}
+
+// Extraire TOUS les souvenirs en scrollant
+async function extractAllMemoriesWithScroll(modal) {
+  debugLog('🔄 Extraction avec scroll pour charger tous les souvenirs...');
+  
+  const allMemories = [];
+  const processedTexts = new Set();
+  let previousCount = 0;
+  let scrollAttempts = 0;
+  const maxScrollAttempts = 20; // Limite pour éviter une boucle infinie
+  
+  // Trouver le conteneur scrollable dans la modale
+  const scrollContainer = findScrollableContainer(modal);
+  if (!scrollContainer) {
+    debugLog('❌ Conteneur scrollable non trouvé', null, 'error');
+    return findMemoryPatterns(modal); // Fallback sans scroll
+  }
+  
+  debugLog('📜 Conteneur scrollable trouvé, début du scroll...', null, 'info');
+  
+  // Boucle de scroll pour charger tous les souvenirs
+  while (scrollAttempts < maxScrollAttempts) {
+    // Extraire les souvenirs actuellement visibles
+    const currentMemories = findMemoryPatterns(modal);
+    
+    // Ajouter les nouveaux souvenirs
+    currentMemories.forEach(memory => {
+      if (!processedTexts.has(memory.text)) {
+        processedTexts.add(memory.text);
+        allMemories.push(memory);
+      }
+    });
+    
+    debugLog(`📝 ${allMemories.length} souvenirs trouvés jusqu'à présent...`, null, 'info');
+    
+    // Vérifier si on a trouvé de nouveaux souvenirs
+    if (allMemories.length === previousCount) {
+      // Plus de nouveaux souvenirs, on a tout extrait
+      debugLog('✅ Tous les souvenirs ont été extraits', null, 'success');
+      break;
+    }
+    
+    previousCount = allMemories.length;
+    
+    // Scroller vers le bas
+    const scrolledToBottom = await scrollModalToBottom(scrollContainer);
+    
+    if (scrolledToBottom) {
+      debugLog('📍 Fin du scroll atteinte', null, 'info');
+      // Faire une dernière extraction
+      const finalMemories = findMemoryPatterns(modal);
+      finalMemories.forEach(memory => {
+        if (!processedTexts.has(memory.text)) {
+          processedTexts.add(memory.text);
+          allMemories.push(memory);
+        }
+      });
+      break;
+    }
+    
+    // Attendre que le nouveau contenu se charge
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    scrollAttempts++;
+  }
+  
+  debugLog(`🎉 Extraction terminée: ${allMemories.length} souvenirs totaux`, null, 'success');
+  return allMemories;
+}
+
+// Trouver le conteneur scrollable dans la modale
+function findScrollableContainer(modal) {
+  // Stratégie 1: Chercher un élément avec overflow scroll/auto
+  const elements = modal.querySelectorAll('*');
+  for (const el of elements) {
+    const style = window.getComputedStyle(el);
+    if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+      if (el.scrollHeight > el.clientHeight) {
+        debugLog('✓ Conteneur scrollable trouvé par style', null, 'success');
+        return el;
+      }
+    }
+  }
+  
+  // Stratégie 2: Chercher par classes communes pour les scrollables
+  const scrollableSelectors = [
+    '[class*="scroll"]',
+    '[class*="overflow"]',
+    '[class*="modal-body"]',
+    '[class*="content"]',
+    '[class*="list"]'
+  ];
+  
+  for (const selector of scrollableSelectors) {
+    const el = modal.querySelector(selector);
+    if (el && el.scrollHeight > el.clientHeight) {
+      debugLog('✓ Conteneur scrollable trouvé par classe', null, 'success');
+      return el;
+    }
+  }
+  
+  // Stratégie 3: Utiliser la modale elle-même si elle est scrollable
+  if (modal.scrollHeight > modal.clientHeight) {
+    debugLog('✓ La modale elle-même est scrollable', null, 'success');
+    return modal;
+  }
+  
+  return null;
+}
+
+// Scroller le conteneur vers le bas
+async function scrollModalToBottom(container) {
+  const previousScrollTop = container.scrollTop;
+  const maxScroll = container.scrollHeight - container.clientHeight;
+  
+  // Scroller par étapes pour déclencher le lazy loading
+  const scrollStep = 200; // Pixels à scroller à chaque étape
+  container.scrollTop = Math.min(previousScrollTop + scrollStep, maxScroll);
+  
+  // Attendre un peu pour le rendu
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  // Vérifier si on a atteint le bas
+  const currentScrollTop = container.scrollTop;
+  const isAtBottom = currentScrollTop >= maxScroll - 10; // Petite marge
+  
+  return isAtBottom;
 }
 
 // Trouver les patterns de souvenirs
@@ -453,7 +579,7 @@ async function guidedExtraction() {
     };
   }
   
-  analyzeModalContent(modal);
+  await analyzeModalContent(modal);
   
   // Étape 7: Retourner les résultats
   if (debugState.memoryData.length > 0) {
@@ -480,9 +606,15 @@ function setupElementCapture() {
   debugLog('🎯 Mode capture d\'élément activé - Survolez et cliquez sur un élément');
   
   let hoveredElement = null;
+  let captureActive = true;
   
   const handleMouseOver = (e) => {
-    if (hoveredElement) {
+    if (!captureActive) return;
+    
+    // Ne pas capturer sur l'extension elle-même
+    if (e.target.closest('[role="dialog"]')) return;
+    
+    if (hoveredElement && hoveredElement !== e.target) {
       hoveredElement.style.outline = '';
     }
     hoveredElement = e.target;
@@ -490,6 +622,11 @@ function setupElementCapture() {
   };
   
   const handleClick = (e) => {
+    if (!captureActive) return;
+    
+    // Ne pas capturer sur l'extension ou la modale
+    if (e.target.closest('[role="dialog"]')) return;
+    
     e.preventDefault();
     e.stopPropagation();
     
@@ -508,27 +645,33 @@ function setupElementCapture() {
     chrome.runtime.sendMessage({
       action: 'elementCaptured',
       element: elementInfo
-    });
+    }).catch(() => {});
     
-    // Nettoyer
-    document.removeEventListener('mouseover', handleMouseOver);
-    document.removeEventListener('click', handleClick);
+    // Désactiver la capture
+    captureActive = false;
+    cleanup();
+  };
+  
+  const cleanup = () => {
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('click', handleClick, true);
     if (hoveredElement) {
       hoveredElement.style.outline = '';
     }
+    debugLog('✅ Mode capture désactivé', null, 'info');
   };
   
-  document.addEventListener('mouseover', handleMouseOver);
-  document.addEventListener('click', handleClick);
+  // Utiliser capture:true pour intercepter avant les autres handlers
+  document.addEventListener('mouseover', handleMouseOver, true);
+  document.addEventListener('click', handleClick, true);
   
   // Timeout de 30 secondes
   setTimeout(() => {
-    document.removeEventListener('mouseover', handleMouseOver);
-    document.removeEventListener('click', handleClick);
-    if (hoveredElement) {
-      hoveredElement.style.outline = '';
+    if (captureActive) {
+      captureActive = false;
+      cleanup();
+      debugLog('⏱️ Mode capture expiré', null, 'info');
     }
-    debugLog('⏱️ Mode capture expiré', null, 'info');
   }, 30000);
 }
 
