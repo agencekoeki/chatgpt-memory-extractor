@@ -3,82 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatGPT Memory Extractor</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>ChatGPT Memory Debug Assistant</title>
+  <link rel="stylesheet" href="styles-debug.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🧠 Memory Extractor</h1>
-      <p class="subtitle">Sauvegardez votre mémoire ChatGPT</p>
+      <h1>🔬 Memory Debug Assistant</h1>
+      <p class="subtitle">Mode exploration & extraction guidée</p>
     </header>
 
-    <div id="status" class="status">
-      <div class="status-indicator" id="statusIndicator"></div>
-      <span id="statusText">En attente...</span>
+    <!-- Onglets -->
+    <div class="tabs">
+      <button class="tab active" data-tab="guide">📋 Guide</button>
+      <button class="tab" data-tab="debug">🐛 Debug</button>
+      <button class="tab" data-tab="capture">🎯 Capture</button>
+      <button class="tab" data-tab="logs">📜 Logs</button>
     </div>
 
-    <div class="actions">
-      <button id="extractBtn" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        Extraire la mémoire
-      </button>
-      
-      <button id="navigateBtn" class="btn btn-secondary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        Aller aux paramètres
-      </button>
-    </div>
-
-    <div id="results" class="results hidden">
-      <div class="results-header">
-        <h3>📝 Mémoire extraite</h3>
-        <span id="memoryCount" class="count">0 souvenirs</span>
+    <!-- Tab Guide -->
+    <div class="tab-content active" id="tab-guide">
+      <div class="step-indicator">
+        <div class="step" id="step-1">
+          <span class="step-number">1</span>
+          <span class="step-label">Navigation</span>
+        </div>
+        <div class="step" id="step-2">
+          <span class="step-number">2</span>
+          <span class="step-label">Trouver Mémoire</span>
+        </div>
+        <div class="step" id="step-3">
+          <span class="step-number">3</span>
+          <span class="step-label">Cliquer Gérer</span>
+        </div>
+        <div class="step" id="step-4">
+          <span class="step-number">4</span>
+          <span class="step-label">Extraire</span>
+        </div>
       </div>
-      
-      <div id="memoryPreview" class="memory-preview"></div>
-      
-      <div class="export-actions">
-        <button id="saveBtn" class="btn btn-success">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          Sauvegarder en TXT
+
+      <div class="current-status">
+        <h3>État actuel:</h3>
+        <div id="pageStatus" class="status-box">
+          <p>Analyse en cours...</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="analyzeBtn" class="btn btn-primary">
+          🔍 Analyser la page
         </button>
         
-        <button id="copyBtn" class="btn btn-outline">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-          Copier
+        <button id="guidedBtn" class="btn btn-success">
+          🚀 Extraction guidée
         </button>
+        
+        <button id="scrollBtn" class="btn btn-secondary hidden">
+          📜 Scroller vers Mémoire
+        </button>
+      </div>
+
+      <div id="guideResults" class="results-box hidden">
+        <h3>Résultat:</h3>
+        <div id="guideContent"></div>
       </div>
     </div>
 
-    <div id="error" class="error hidden">
-      <p id="errorMessage"></p>
+    <!-- Tab Debug -->
+    <div class="tab-content" id="tab-debug">
+      <div class="debug-info">
+        <h3>🔍 Éléments détectés:</h3>
+        <div id="foundElements" class="element-list">
+          <div class="element-item">
+            <span class="element-icon">⏳</span>
+            <span>En attente d'analyse...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="debug-actions">
+        <button id="refreshAnalysis" class="btn btn-primary">
+          🔄 Rafraîchir l'analyse
+        </button>
+        
+        <button id="exploreModal" class="btn btn-secondary">
+          🔬 Explorer la modale
+        </button>
+      </div>
+
+      <div class="dom-explorer">
+        <h3>📊 Statistiques DOM:</h3>
+        <div id="domStats" class="stats-grid">
+          <div class="stat">
+            <span class="stat-label">URL:</span>
+            <span class="stat-value" id="currentUrl">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Position:</span>
+            <span class="stat-value" id="scrollPos">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Capture -->
+    <div class="tab-content" id="tab-capture">
+      <div class="capture-info">
+        <h3>🎯 Mode Capture d'Élément</h3>
+        <p>Cliquez sur "Démarrer la capture" puis survolez et cliquez sur n'importe quel élément de la page pour obtenir ses informations.</p>
+      </div>
+
+      <button id="startCapture" class="btn btn-primary">
+        🎯 Démarrer la capture
+      </button>
+
+      <div id="capturedElement" class="captured-info hidden">
+        <h3>Élément capturé:</h3>
+        <div class="code-block">
+          <pre id="capturedData"></pre>
+        </div>
+        <button id="copySelector" class="btn btn-small">
+          📋 Copier le sélecteur
+        </button>
+      </div>
+
+      <div class="capture-history">
+        <h3>📝 Historique des captures:</h3>
+        <div id="captureHistory"></div>
+      </div>
+    </div>
+
+    <!-- Tab Logs -->
+    <div class="tab-content" id="tab-logs">
+      <div class="logs-header">
+        <h3>📜 Journal des événements</h3>
+        <button id="clearLogs" class="btn btn-small btn-danger">
+          🗑️ Effacer
+        </button>
+      </div>
+      
+      <div class="log-filters">
+        <label>
+          <input type="checkbox" id="showInfo" checked> Info
+        </label>
+        <label>
+          <input type="checkbox" id="showSuccess" checked> Success
+        </label>
+        <label>
+          <input type="checkbox" id="showWarning" checked> Warning
+        </label>
+        <label>
+          <input type="checkbox" id="showError" checked> Error
+        </label>
+        <label>
+          <input type="checkbox" id="showDebug"> Debug
+        </label>
+      </div>
+      
+      <div id="logsContainer" class="logs-container">
+        <div class="log-entry">
+          <span class="log-time">00:00:00</span>
+          <span class="log-level info">INFO</span>
+          <span class="log-message">En attente des logs...</span>
+        </div>
+      </div>
+
+      <div class="logs-actions">
+        <button id="exportLogs" class="btn btn-secondary">
+          💾 Exporter les logs
+        </button>
+        <button id="refreshLogs" class="btn btn-primary">
+          🔄 Rafraîchir
+        </button>
+      </div>
     </div>
 
     <footer>
-      <p class="info">💡 Naviguez vers Settings → Personalization puis cliquez sur "Extraire"</p>
-      <div class="stats">
-        <span id="lastExtract">Jamais extrait</span>
-        <span id="version">v1.0.0</span>
+      <div class="footer-info">
+        <span class="mode-indicator">Mode: <strong id="currentMode">DEBUG</strong></span>
+        <span class="version">v2.0.0-debug</span>
+      </div>
+      <div class="help-text">
+        💡 Utilisez les onglets pour explorer et comprendre la structure de ChatGPT
       </div>
     </footer>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="popup-debug.js"></script>
 </body>
 </html>

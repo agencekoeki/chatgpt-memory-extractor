@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Memory Extractor 🧠",
-  "version": "1.0.0",
-  "description": "Extrait et sauvegarde votre mémoire ChatGPT en fichier TXT",
+  "name": "ChatGPT Memory Debug Assistant 🔬",
+  "version": "2.0.0",
+  "description": "Assistant de debug pour comprendre et extraire la mémoire ChatGPT",
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "https://chatgpt.com/*"
+    "https://chatgpt.com/*",
+    "https://*.chatgpt.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -21,9 +23,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*"],
+      "matches": ["https://chatgpt.com/*", "https://*.chatgpt.com/*"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "icons": {
