@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT Memory Extractor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🧠 Memory Extractor</h1>
+      <p class="subtitle">Sauvegardez votre mémoire ChatGPT</p>
+    </header>
+
+    <div id="status" class="status">
+      <div class="status-indicator" id="statusIndicator"></div>
+      <span id="statusText">En attente...</span>
+    </div>
+
+    <div class="actions">
+      <button id="extractBtn" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Extraire la mémoire
+      </button>
+      
+      <button id="navigateBtn" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        Aller aux paramètres
+      </button>
+    </div>
+
+    <div id="results" class="results hidden">
+      <div class="results-header">
+        <h3>📝 Mémoire extraite</h3>
+        <span id="memoryCount" class="count">0 souvenirs</span>
+      </div>
+      
+      <div id="memoryPreview" class="memory-preview"></div>
+      
+      <div class="export-actions">
+        <button id="saveBtn" class="btn btn-success">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Sauvegarder en TXT
+        </button>
+        
+        <button id="copyBtn" class="btn btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copier
+        </button>
+      </div>
+    </div>
+
+    <div id="error" class="error hidden">
+      <p id="errorMessage"></p>
+    </div>
+
+    <footer>
+      <p class="info">💡 Naviguez vers Settings → Personalization puis cliquez sur "Extraire"</p>
+      <div class="stats">
+        <span id="lastExtract">Jamais extrait</span>
+        <span id="version">v1.0.0</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
