@@ -4,191 +4,103 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ChatGPT Memory Extractor</title>
-  <link rel="stylesheet" href="styles-debug.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🧠 Memory Extractor Pro</h1>
-      <p class="subtitle">Assistant intelligent d'extraction</p>
+      <h1>🧠 Memory Extractor</h1>
+      <p class="subtitle">Extrayez tous vos souvenirs ChatGPT</p>
     </header>
 
-    <!-- Onglets -->
-    <div class="tabs">
-      <button class="tab active" data-tab="guide">🚀 Extraction</button>
-      <button class="tab" data-tab="debug">🔍 Analyse</button>
-      <button class="tab" data-tab="capture">🎯 Capture</button>
-      <button class="tab" data-tab="logs">📜 Journal</button>
-    </div>
-
-    <!-- Tab Guide -->
-    <div class="tab-content active" id="tab-guide">
-      <div class="step-indicator">
-        <div class="step" id="step-1">
-          <span class="step-number">1</span>
-          <span class="step-label">Navigation</span>
-        </div>
-        <div class="step" id="step-2">
-          <span class="step-number">2</span>
-          <span class="step-label">Trouver Mémoire</span>
-        </div>
-        <div class="step" id="step-3">
-          <span class="step-number">3</span>
-          <span class="step-label">Cliquer Gérer</span>
-        </div>
-        <div class="step" id="step-4">
-          <span class="step-number">4</span>
-          <span class="step-label">Extraire</span>
-        </div>
+    <!-- STATUS PRINCIPAL -->
+    <div class="main-status">
+      <div class="status-indicator" id="statusIndicator">
+        <span class="status-icon">⏳</span>
+        <span class="status-text" id="statusText">Analyse en cours...</span>
       </div>
-
-      <div class="current-status">
-        <h3>État actuel:</h3>
-        <div id="pageStatus" class="status-box">
-          <p>Analyse en cours...</p>
+      
+      <div class="progress-info hidden" id="progressInfo">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
         </div>
-      </div>
-
-      <div class="actions">
-        <button id="analyzeBtn" class="btn btn-primary">
-          🔍 Analyser la page
-        </button>
-        
-        <button id="guidedBtn" class="btn btn-success">
-          🚀 Extraction guidée
-        </button>
-        
-        <button id="scrollBtn" class="btn btn-secondary hidden">
-          📜 Scroller vers Mémoire
-        </button>
-      </div>
-
-      <div id="guideResults" class="results-box hidden">
-        <h3>Résultat:</h3>
-        <div id="guideContent"></div>
+        <span class="progress-text" id="progressText">0 souvenirs extraits</span>
       </div>
     </div>
 
-    <!-- Tab Debug -->
-    <div class="tab-content" id="tab-debug">
-      <div class="debug-info">
-        <h3>🔍 Éléments détectés sur la page:</h3>
-        <div id="foundElements" class="element-list">
-          <div class="element-item">
-            <span class="element-icon">⏳</span>
-            <span>En attente d'analyse...</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="debug-actions">
-        <button id="refreshAnalysis" class="btn btn-primary">
-          🔄 Rafraîchir l'analyse
-        </button>
-        
-        <button id="exploreModal" class="btn btn-secondary">
-          🔬 Explorer la modale
-        </button>
-      </div>
-
-      <div class="dom-explorer">
-        <h3>📊 Statistiques DOM:</h3>
-        <div id="domStats" class="stats-grid">
-          <div class="stat">
-            <span class="stat-label">URL:</span>
-            <span class="stat-value" id="currentUrl">-</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Position:</span>
-            <span class="stat-value" id="scrollPos">-</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tab Capture -->
-    <div class="tab-content" id="tab-capture">
-      <div class="capture-info">
-        <h3>🎯 Mode Capture d'Élément</h3>
-        <p>Cliquez sur "Démarrer la capture" puis survolez et cliquez sur n'importe quel élément de la page pour obtenir ses informations.</p>
-      </div>
-
-      <button id="startCapture" class="btn btn-primary">
-        🎯 Démarrer la capture
+    <!-- BOUTON PRINCIPAL -->
+    <div class="main-action">
+      <button id="extractBtn" class="btn-extract" disabled>
+        <span class="btn-icon">🚀</span>
+        <span class="btn-text">EXTRAIRE TOUS LES SOUVENIRS</span>
+        <span class="btn-subtitle">Cliquez quand le bouton "Gérer" est détecté</span>
       </button>
+    </div>
 
-      <div id="capturedElement" class="captured-info hidden">
-        <h3>Élément capturé:</h3>
-        <div class="code-block">
-          <pre id="capturedData"></pre>
-        </div>
-        <button id="copySelector" class="btn btn-small">
-          📋 Copier le sélecteur
-        </button>
+    <!-- GUIDE VISUEL -->
+    <div class="steps-guide">
+      <div class="step" id="step1">
+        <span class="step-number">1</span>
+        <span class="step-text">Ouvrir ChatGPT</span>
+        <span class="step-status" id="status1">⏳</span>
       </div>
-
-      <div class="capture-history">
-        <h3>📝 Historique des captures:</h3>
-        <div id="captureHistory"></div>
+      <div class="step" id="step2">
+        <span class="step-number">2</span>
+        <span class="step-text">Settings > Personalization</span>
+        <span class="step-status" id="status2">⏳</span>
+      </div>
+      <div class="step" id="step3">
+        <span class="step-number">3</span>
+        <span class="step-text">Scroll jusqu'à "Mémoire"</span>
+        <span class="step-status" id="status3">⏳</span>
+      </div>
+      <div class="step" id="step4">
+        <span class="step-number">4</span>
+        <span class="step-text">Bouton "Gérer" visible</span>
+        <span class="step-status" id="status4">⏳</span>
       </div>
     </div>
 
-    <!-- Tab Logs -->
-    <div class="tab-content" id="tab-logs">
-      <div class="logs-header">
-        <h3>📜 Journal des événements</h3>
-        <button id="clearLogs" class="btn btn-small btn-danger">
-          🗑️ Effacer
-        </button>
+    <!-- RESULTATS -->
+    <div class="results hidden" id="results">
+      <div class="results-header">
+        <h3>✅ Extraction terminée !</h3>
+        <span class="results-count" id="resultsCount">0 souvenirs</span>
       </div>
       
-      <div class="log-filters">
-        <label>
-          <input type="checkbox" id="showInfo" checked> Info
-        </label>
-        <label>
-          <input type="checkbox" id="showSuccess" checked> Success
-        </label>
-        <label>
-          <input type="checkbox" id="showWarning" checked> Warning
-        </label>
-        <label>
-          <input type="checkbox" id="showError" checked> Error
-        </label>
-        <label>
-          <input type="checkbox" id="showDebug"> Debug
-        </label>
-      </div>
+      <div class="results-preview" id="resultsPreview"></div>
       
-      <div id="logsContainer" class="logs-container">
-        <div class="log-entry">
-          <span class="log-time">00:00:00</span>
-          <span class="log-level info">INFO</span>
-          <span class="log-message">En attente des logs...</span>
-        </div>
-      </div>
-
-      <div class="logs-actions">
-        <button id="exportLogs" class="btn btn-secondary">
-          💾 Exporter les logs
+      <div class="results-actions">
+        <button id="saveBtn" class="btn-save">
+          💾 Sauvegarder en TXT
         </button>
-        <button id="refreshLogs" class="btn btn-primary">
-          🔄 Rafraîchir
+        <button id="copyBtn" class="btn-copy">
+          📋 Copier tout
         </button>
       </div>
     </div>
 
+    <!-- MINI CONSOLE -->
+    <div class="console-mini">
+      <div class="console-header">
+        <span>📊 Console</span>
+        <button id="toggleConsole" class="btn-toggle">▼</button>
+      </div>
+      <div class="console-content hidden" id="consoleContent">
+        <div class="console-logs" id="consoleLogs"></div>
+        <button id="clearConsole" class="btn-clear">Effacer</button>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
     <footer>
-      <div class="footer-info">
-        <span class="mode-indicator">Mode: <strong id="currentMode">EXTRACTION</strong></span>
-        <span class="version">v2.0.0-pro</span>
-      </div>
       <div class="help-text">
-        💡 Suivez les étapes pour extraire tous vos souvenirs ChatGPT
+        💡 Le bouton "Gérer" devient <span style="color: #00ff00;">vert</span> quand détecté
       </div>
+      <div class="version">v3.0</div>
     </footer>
   </div>
 
-  <script src="popup-debug.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>
