@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.3 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.4 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 let isExtracting = false;
@@ -101,62 +101,70 @@ function findButtonByText(texts) {
 async function step1_findUserMenu() {
   log('========== ÉTAPE 1: MENU UTILISATEUR ==========', 'info');
 
-  // Liste tous les sélecteurs qu'on essaie
+  // Liste des sélecteurs PAR ORDRE DE PRIORITÉ (le plus fiable en premier)
   const selectors = [
-    { name: 'data-testid="profile-button"', sel: '[data-testid="profile-button"]' },
-    { name: 'aria-label contient "enu"', sel: 'button[aria-label*="enu"]' },
-    { name: 'aria-label contient "Menu"', sel: 'button[aria-label*="Menu"]' },
-    { name: 'aria-label contient "profile"', sel: 'button[aria-label*="profile"]' },
-    { name: 'aria-label contient "account"', sel: 'button[aria-label*="account"]' },
-    { name: 'nav button:last-child', sel: 'nav button:last-child' },
-    { name: 'data-testid contient "user"', sel: '[data-testid*="user"]' },
-    { name: 'data-testid contient "avatar"', sel: '[data-testid*="avatar"]' },
-    { name: 'data-testid contient "profile"', sel: '[data-testid*="profile"]' },
+    // Sélecteur exact trouvé sur ChatGPT (décembre 2024)
+    { name: 'data-testid="accounts-profile-button"', sel: '[data-testid="accounts-profile-button"]' },
+    // Aria label pour ouvrir le menu profil (FR)
+    { name: 'aria-label="Ouvrir le menu du profil"', sel: '[aria-label="Ouvrir le menu du profil"]' },
+    // Aria label pour ouvrir le menu profil (EN)
+    { name: 'aria-label="Open profile menu"', sel: '[aria-label="Open profile menu"]' },
+    // Fallbacks plus génériques
+    { name: 'data-testid contient "profile-button"', sel: '[data-testid*="profile-button"]' },
+    { name: 'data-testid contient "account"', sel: '[data-testid*="account"]' },
+    { name: 'aria-label contient "profil"', sel: '[aria-label*="profil"]' },
+    { name: 'aria-label contient "profile"', sel: '[aria-label*="profile"]' },
   ];
 
-  log('Recherche avec sélecteurs CSS:', 'debug');
+  log('Recherche avec sélecteurs CSS (par priorité):', 'debug');
   let foundBtn = null;
 
   for (const s of selectors) {
     const el = document.querySelector(s.sel);
-    if (el) {
+    if (el && el.offsetHeight > 0) {
       log(`  ✓ TROUVÉ: ${s.name}`, 'success');
       log(`    -> ${diagElement(el)}`, 'debug');
-      if (!foundBtn && el.offsetHeight > 0) foundBtn = el;
+      // Prend le premier trouvé qui est visible
+      if (!foundBtn) {
+        foundBtn = el;
+        log(`  >> SÉLECTIONNÉ comme bouton profil`, 'success');
+      }
+    } else if (el) {
+      log(`  ⚠ Trouvé mais invisible: ${s.name}`, 'warning');
     } else {
       log(`  ✗ ${s.name}`, 'debug');
     }
   }
 
-  // Recherche par contenu (@ ou avatar)
-  log('Recherche par contenu (@ ou avatar):', 'debug');
-  const allButtons = [...document.querySelectorAll('button')];
-  const btnWithAt = allButtons.find(b => b.textContent?.includes('@'));
-  const btnWithAvatar = allButtons.find(b => b.querySelector('img[alt]'));
-
-  if (btnWithAt) {
-    log(`  ✓ Bouton avec @: "${btnWithAt.textContent?.trim()?.substring(0, 40)}"`, 'success');
-    if (!foundBtn) foundBtn = btnWithAt;
+  // Fallback: cherche un bouton/div cliquable avec role="button" et aria-label profil
+  if (!foundBtn) {
+    log('Fallback: recherche éléments avec role="button":', 'debug');
+    const roleButtons = document.querySelectorAll('[role="button"]');
+    for (const btn of roleButtons) {
+      const aria = btn.getAttribute('aria-label')?.toLowerCase() || '';
+      const testId = btn.getAttribute('data-testid')?.toLowerCase() || '';
+      if ((aria.includes('profil') || aria.includes('profile') || testId.includes('profile') || testId.includes('account')) && btn.offsetHeight > 0) {
+        log(`  ✓ role="button" trouvé: ${diagElement(btn)}`, 'success');
+        foundBtn = btn;
+        break;
+      }
+    }
   }
-  if (btnWithAvatar) {
-    log(`  ✓ Bouton avec avatar img`, 'success');
-    if (!foundBtn) foundBtn = btnWithAvatar;
-  }
 
-  // Affiche tous les boutons de la sidebar/nav pour diagnostic
-  log('Boutons dans nav/aside:', 'debug');
+  // Affiche quelques boutons de la nav pour diagnostic
+  log('Boutons dans nav (premiers 10):', 'debug');
   const navButtons = document.querySelectorAll('nav button, aside button');
-  navButtons.forEach((btn, i) => {
+  [...navButtons].slice(0, 10).forEach((btn, i) => {
     if (btn.offsetHeight > 0) {
-      log(`  nav[${i}]: testId="${btn.getAttribute('data-testid') || '-'}" text="${btn.textContent?.trim()?.substring(0, 30) || '-'}"`, 'debug');
+      log(`  nav[${i}]: testId="${btn.getAttribute('data-testid') || '-'}" aria="${btn.getAttribute('aria-label') || '-'}"`, 'debug');
     }
   });
 
   if (foundBtn) {
-    log(`RÉSULTAT ÉTAPE 1: Bouton trouvé!`, 'success');
+    log(`RÉSULTAT ÉTAPE 1: Bouton profil trouvé!`, 'success');
     return { success: true, element: foundBtn };
   } else {
-    log(`RÉSULTAT ÉTAPE 1: AUCUN bouton trouvé`, 'error');
+    log(`RÉSULTAT ÉTAPE 1: AUCUN bouton profil trouvé`, 'error');
     diagAllButtons();
     return { success: false, element: null };
   }
@@ -364,7 +372,25 @@ async function navigateToMemories() {
 
   log('Clic sur menu utilisateur...', 'info');
   step1.element.click();
-  await wait(800);
+
+  // Attendre que le menu s'ouvre (cherche role="menu" ou un popover)
+  log('Attente ouverture du menu...', 'debug');
+  let menuOpened = false;
+  for (let i = 0; i < 15; i++) {
+    await wait(200);
+    const menu = document.querySelector('[role="menu"], [data-radix-menu-content], [data-state="open"]');
+    if (menu) {
+      log('Menu ouvert détecté!', 'success');
+      menuOpened = true;
+      break;
+    }
+  }
+
+  if (!menuOpened) {
+    log('Menu non détecté après clic, on continue quand même...', 'warning');
+  }
+
+  await wait(300);
 
   // ÉTAPE 2
   const step2 = await step2_findSettings();
@@ -658,7 +684,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.3 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.4 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
