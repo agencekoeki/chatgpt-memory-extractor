@@ -11,6 +11,8 @@ export class APIClient {
     const model = options.model || 'claude-3-5-haiku-20241022';
     const maxTokens = options.maxTokens || 1024;
 
+    console.log(`[API] Calling Anthropic with model: ${model}`);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -28,10 +30,12 @@ export class APIClient {
 
     if (!response.ok) {
       const error = await response.json();
+      console.error(`[API] Anthropic error:`, error);
       throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
+    console.log(`[API] Anthropic response received`);
     return data.content[0].text;
   }
 
@@ -143,23 +147,23 @@ export class APIClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // ========== MODEL MAPPING (December 2025) ==========
+  // ========== MODEL MAPPING ==========
   static getModels() {
     return {
       anthropic: {
-        haiku: 'claude-haiku-4-5-20251015',      // Fast, cheap - Oct 2025
-        sonnet: 'claude-sonnet-4-5-20250929',    // Mid-tier - Sep 2025
-        opus: 'claude-opus-4-5-20251124'         // Best - Nov 2025
+        haiku: 'claude-3-5-haiku-20241022',      // Fast, cheap - stable
+        sonnet: 'claude-sonnet-4-5-20250929',    // Mid-tier - Claude 4.5
+        opus: 'claude-opus-4-5-20251101'         // Best - Claude Opus 4.5
       },
       openai: {
-        mini: 'gpt-5-mini',                      // Fast, cheap - Aug 2025
-        standard: 'gpt-5.1',                     // Mid-tier - Nov 2025
-        thinking: 'gpt-5.1-thinking'             // Best reasoning - Nov 2025
+        mini: 'gpt-4o-mini',                     // Fast, cheap
+        standard: 'gpt-4o',                      // Mid-tier
+        thinking: 'o1-preview'                   // Best reasoning
       },
       google: {
-        flash: 'gemini-2.5-flash',               // Fast, cheap
-        pro: 'gemini-3.0-pro',                   // Mid-tier - Nov 2025
-        deepthink: 'gemini-3.0-deep-think'       // Best reasoning - Dec 2025
+        flash: 'gemini-1.5-flash',               // Fast, cheap
+        pro: 'gemini-1.5-pro',                   // Mid-tier
+        deepthink: 'gemini-1.5-pro'              // Best (same as pro for now)
       }
     };
   }
