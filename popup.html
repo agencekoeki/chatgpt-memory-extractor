@@ -3,101 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatGPT Memory Extractor</title>
+  <title>Memory Extractor</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
+    <!-- HEADER -->
     <header>
-      <h1>🧠 Memory Extractor</h1>
-      <p class="subtitle">Extrayez tous vos souvenirs ChatGPT</p>
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a9 9 0 0 1 9 9c0 3.6-2.1 6.7-5.1 8.2l-.9.4V22h-6v-2.4l-.9-.4A9 9 0 0 1 12 2z"/>
+          <path d="M12 6v4m-2 2h4"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>Memory Extractor</h1>
+        <p class="subtitle">Export ChatGPT memories</p>
+      </div>
     </header>
 
-    <!-- STATUS PRINCIPAL -->
-    <div class="main-status">
-      <div class="status-indicator" id="statusIndicator">
-        <span class="status-icon">⏳</span>
-        <span class="status-text" id="statusText">Analyse en cours...</span>
+    <!-- STATUS -->
+    <div class="status-card" id="statusCard">
+      <div class="status-icon" id="statusIcon">
+        <svg class="icon-waiting" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <svg class="icon-ready hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <svg class="icon-loading hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        <svg class="icon-error hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <svg class="icon-success hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
       </div>
-      
-      <div class="progress-info hidden" id="progressInfo">
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <span class="progress-text" id="progressText">0 souvenirs extraits</span>
-      </div>
+      <span class="status-text" id="statusText">Vérification...</span>
     </div>
 
-    <!-- BOUTON PRINCIPAL -->
-    <div class="main-action">
-      <button id="extractBtn" class="btn-extract" disabled>
-        <span class="btn-icon">🚀</span>
-        <span class="btn-text">EXTRAIRE TOUS LES SOUVENIRS</span>
-        <span class="btn-subtitle">Cliquez quand le bouton "Gérer" est détecté</span>
+    <!-- PROGRESS -->
+    <div class="progress-section hidden" id="progressSection">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-text" id="progressText">0 souvenirs</span>
+    </div>
+
+    <!-- MAIN BUTTON -->
+    <div class="action-section">
+      <button id="extractBtn" class="btn-primary" disabled>
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span id="btnText">Extraire les souvenirs</span>
       </button>
     </div>
 
-    <!-- GUIDE VISUEL -->
-    <div class="steps-guide">
-      <div class="step" id="step1">
-        <span class="step-number">1</span>
-        <span class="step-text">Ouvrir ChatGPT</span>
-        <span class="step-status" id="status1">⏳</span>
-      </div>
-      <div class="step" id="step2">
-        <span class="step-number">2</span>
-        <span class="step-text">Settings > Personalization</span>
-        <span class="step-status" id="status2">⏳</span>
-      </div>
-      <div class="step" id="step3">
-        <span class="step-number">3</span>
-        <span class="step-text">Scroll jusqu'à "Mémoire"</span>
-        <span class="step-status" id="status3">⏳</span>
-      </div>
-      <div class="step" id="step4">
-        <span class="step-number">4</span>
-        <span class="step-text">Bouton "Gérer" visible</span>
-        <span class="step-status" id="status4">⏳</span>
-      </div>
-    </div>
-
-    <!-- RESULTATS -->
-    <div class="results hidden" id="results">
+    <!-- RESULTS -->
+    <div class="results-section hidden" id="resultsSection">
       <div class="results-header">
-        <h3>✅ Extraction terminée !</h3>
-        <span class="results-count" id="resultsCount">0 souvenirs</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span id="resultsCount">0 souvenirs extraits</span>
       </div>
-      
+
       <div class="results-preview" id="resultsPreview"></div>
-      
+
       <div class="results-actions">
-        <button id="saveBtn" class="btn-save">
-          💾 Sauvegarder en TXT
+        <button id="saveBtn" class="btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Sauvegarder .txt
         </button>
-        <button id="copyBtn" class="btn-copy">
-          📋 Copier tout
+        <button id="copyBtn" class="btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copier
         </button>
       </div>
     </div>
 
-    <!-- MINI CONSOLE -->
-    <div class="console-mini">
-      <div class="console-header">
-        <span>📊 Console</span>
-        <button id="toggleConsole" class="btn-toggle">▼</button>
-      </div>
+    <!-- CONSOLE (collapsed by default) -->
+    <div class="console-section">
+      <button class="console-toggle" id="consoleToggle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="4 17 10 11 4 5"/>
+          <line x1="12" y1="19" x2="20" y2="19"/>
+        </svg>
+        <span>Console</span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
       <div class="console-content hidden" id="consoleContent">
         <div class="console-logs" id="consoleLogs"></div>
-        <button id="clearConsole" class="btn-clear">Effacer</button>
       </div>
     </div>
 
     <!-- FOOTER -->
     <footer>
-      <div class="help-text">
-        💡 Le bouton "Gérer" devient <span style="color: #00ff00;">vert</span> quand détecté
-      </div>
-      <div class="version">v3.0</div>
+      <span class="version">v3.1</span>
     </footer>
   </div>
 

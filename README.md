@@ -1,42 +1,30 @@
 # ChatGPT Memory Extractor
 
-Extension Chrome permettant d'extraire et sauvegarder tous vos "souvenirs" ChatGPT (les informations personnalisées que ChatGPT a mémorisées sur vous).
+Chrome extension to extract and save all your ChatGPT memories with a single click.
 
-## Fonctionnalités
+## Features
 
-- **Extraction complète** : Récupère tous vos souvenirs avec scroll automatique
-- **Guide visuel** : Interface étape par étape pour vous guider
-- **Visualisation en temps réel** : Barre de progression et compteur de souvenirs
-- **Export flexible** : Sauvegarde en fichier TXT ou copie dans le presse-papier
-- **Console de débogage** : Logs détaillés pour le suivi de l'extraction
+- **One-click extraction** : Automatic navigation and extraction
+- **Clean dark UI** : Professional interface with SVG icons
+- **Real-time progress** : Progress bar and memory counter
+- **Flexible export** : Save as TXT file or copy to clipboard
+- **Debug console** : Detailed logs for troubleshooting
 
 ## Installation
 
-1. Téléchargez ou clonez ce repository
-2. Ouvrez Chrome et allez dans `chrome://extensions/`
-3. Activez le **Mode développeur** (en haut à droite)
-4. Cliquez sur **Charger l'extension non empaquetée**
-5. Sélectionnez le dossier du projet
+1. Download or clone this repository
+2. Open Chrome and go to `chrome://extensions/`
+3. Enable **Developer mode** (top right)
+4. Click **Load unpacked**
+5. Select the project folder
 
-## Utilisation
+## Usage
 
-### Étape 1 : Ouvrir ChatGPT
-Naviguez vers [chatgpt.com](https://chatgpt.com)
-
-### Étape 2 : Accéder aux paramètres
-Allez dans **Settings** (⚙️) > **Personalization**
-
-### Étape 3 : Section Mémoire
-Scrollez jusqu'à voir la section **Mémoire** avec le pourcentage utilisé
-
-### Étape 4 : Lancer l'extraction
-- Quand le bouton **"Gérer"** est visible (surligné en vert), cliquez sur l'icône de l'extension
-- Cliquez sur **"EXTRAIRE TOUS LES SOUVENIRS"**
-- Attendez la fin de l'extraction automatique
-
-### Étape 5 : Sauvegarder
-- **Sauvegarder en TXT** : Télécharge un fichier formaté avec tous vos souvenirs
-- **Copier tout** : Copie tous les souvenirs dans le presse-papier
+1. Open [chatgpt.com](https://chatgpt.com)
+2. Click the extension icon
+3. Click **"Extraire les souvenirs"**
+4. Wait for automatic extraction
+5. Save or copy your memories
 
 ## Structure du projet
 
@@ -131,4 +119,4 @@ Ce projet est fourni tel quel pour un usage personnel.
 
 ## Version
 
-**v3.0.0** - Extraction complète avec visualisation en temps réel
+**v3.1.0** - One-click extraction with automatic navigation and dark UI
