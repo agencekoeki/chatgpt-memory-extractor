@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.8 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.9 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 // Évite double chargement
@@ -661,44 +661,96 @@ async function extractMemories() {
 
 function extractFromTable(container) {
   const memories = [];
+  const seenTexts = new Set();
 
-  const tableRows = container.querySelectorAll('tr');
+  log('Analyse structure modale pour extraction...', 'debug');
 
-  for (const row of tableRows) {
-    const textCell = row.querySelector('td');
-    if (!textCell) continue;
+  // Méthode 1: Cherche les éléments qui ressemblent à des souvenirs
+  // Les souvenirs sont des divs avec du texte substantiel (>50 chars généralement)
+  // et ont souvent une icône de suppression à côté
 
-    const textDiv = textCell.querySelector('[class*="whitespace-pre-wrap"]') ||
-                    textCell.querySelector('[class*="py-2"]') ||
-                    textCell.querySelector('div');
+  // Cherche les conteneurs de souvenirs (souvent des divs avec bordure ou fond)
+  const potentialContainers = container.querySelectorAll(
+    '[class*="border"], [class*="rounded"], [class*="bg-"], [class*="p-"], [class*="py-"], [class*="px-"]'
+  );
 
-    if (textDiv) {
-      const text = textDiv.textContent?.trim();
-      if (text && text.length >= 10 && !isSystemText(text)) {
-        memories.push({
-          text: text,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-  }
+  log(`  ${potentialContainers.length} conteneurs potentiels`, 'debug');
 
-  if (memories.length === 0) {
-    const divs = container.querySelectorAll('[class*="whitespace-pre-wrap"], [class*="py-2"]');
+  // Filtre pour garder ceux qui ont du texte substantiel
+  for (const div of potentialContainers) {
+    const text = div.textContent?.trim();
 
-    for (const div of divs) {
-      const text = div.textContent?.trim();
-      if (text && text.length >= 10 && !isSystemText(text)) {
-        if (div.querySelectorAll('div').length < 3) {
+    // Un souvenir typique fait plus de 50 caractères
+    if (text && text.length >= 50 && text.length < 2000 && !isSystemText(text)) {
+      // Vérifie que ce n'est pas un conteneur parent (qui contiendrait plusieurs souvenirs)
+      const childDivs = div.querySelectorAll('div');
+      const hasDeleteButton = div.querySelector('button, [role="button"]');
+
+      // Si ce div a peu d'enfants directs et/ou un bouton supprimer, c'est probablement un souvenir
+      if (childDivs.length < 10 || hasDeleteButton) {
+        // Évite les doublons et le texte parent qui contient les enfants
+        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
+          seenTexts.add(text);
           memories.push({
             text: text,
             timestamp: new Date().toISOString()
           });
+          log(`  + Souvenir trouvé (${text.length} chars): "${text.substring(0, 50)}..."`, 'debug');
         }
       }
     }
   }
 
+  // Méthode 2: Si peu de résultats, cherche des paragraphes/spans avec du texte long
+  if (memories.length < 3) {
+    log('  Méthode 2: recherche paragraphes...', 'debug');
+
+    const textElements = container.querySelectorAll('p, span, [class*="whitespace"]');
+    for (const el of textElements) {
+      const text = el.textContent?.trim();
+      if (text && text.length >= 50 && text.length < 2000 && !isSystemText(text)) {
+        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
+          seenTexts.add(text);
+          memories.push({
+            text: text,
+            timestamp: new Date().toISOString()
+          });
+          log(`  + Souvenir trouvé via p/span: "${text.substring(0, 50)}..."`, 'debug');
+        }
+      }
+    }
+  }
+
+  // Méthode 3: Dernière chance - tous les divs avec texte > 80 chars
+  if (memories.length < 3) {
+    log('  Méthode 3: tous les divs avec texte long...', 'debug');
+
+    const allDivs = container.querySelectorAll('div');
+    for (const div of allDivs) {
+      // Texte direct de ce div (pas des enfants)
+      const directText = Array.from(div.childNodes)
+        .filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent.trim())
+        .join(' ')
+        .trim();
+
+      // Ou le textContent complet si pas d'enfants div
+      const text = directText.length > 50 ? directText : (div.children.length === 0 ? div.textContent?.trim() : '');
+
+      if (text && text.length >= 80 && text.length < 2000 && !isSystemText(text)) {
+        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
+          seenTexts.add(text);
+          memories.push({
+            text: text,
+            timestamp: new Date().toISOString()
+          });
+          log(`  + Souvenir trouvé via div: "${text.substring(0, 50)}..."`, 'debug');
+        }
+      }
+    }
+  }
+
+  log(`  TOTAL: ${memories.length} souvenirs extraits`, memories.length > 0 ? 'success' : 'warning');
   return memories;
 }
 
@@ -715,23 +767,48 @@ function findScrollContainer(modal) {
 }
 
 function isSystemText(text) {
-  const systemPatterns = [
-    'remplissage', 'filling',
-    'éléments mémorisés', 'memorized items', 'saved memories',
-    'supprimer tout', 'delete all', 'clear all',
-    'gérer', 'manage',
-    'fermer', 'close',
-    'personnalisation', 'personalization',
-    'mémoire pleine', 'memory full',
-    'une fois la mémoire pleine',
-    'les réponses pourraient'
-  ];
-
   const lowerText = text.toLowerCase();
 
-  for (const pattern of systemPatterns) {
+  // Textes d'interface à ignorer
+  const exactMatches = [
+    'remplissage', 'filling', 'gérer', 'manage', 'fermer', 'close',
+    'personnalisation', 'personalization', 'supprimer', 'delete',
+    'copier', 'copy', 'annuler', 'cancel', 'sauvegarder', 'save',
+    'par défaut', 'professionnel', 'chaleureux', 'spontané', 'décalé', 'efficace'
+  ];
+
+  // Si c'est un match exact d'un texte système
+  for (const pattern of exactMatches) {
     if (lowerText === pattern) return true;
-    if (text.length < 60 && lowerText.includes(pattern)) return true;
+  }
+
+  // Patterns qui indiquent du texte d'interface (pas un souvenir)
+  const interfacePatterns = [
+    'éléments mémorisés', 'memorized items', 'saved memories',
+    'supprimer tout', 'delete all', 'clear all',
+    'mémoire pleine', 'memory full',
+    'une fois la mémoire pleine',
+    'les réponses pourraient',
+    'chatgpt peut utiliser',
+    'personnaliser les requêtes',
+    'autorisez chatgpt',
+    'faire référence aux éléments',
+    'enregistrer et à utiliser',
+    'par défautprofessionnel',  // Options de ton concaténées
+    'chaleureuxspontané',
+    'décaléefficace'
+  ];
+
+  for (const pattern of interfacePatterns) {
+    if (lowerText.includes(pattern)) return true;
+  }
+
+  // Si le texte est très court et contient des mots système
+  if (text.length < 40) {
+    const shortPatterns = ['remplissage', 'gérer', 'manage', 'supprimer', 'delete', 'fermer', 'close'];
+    for (const pattern of shortPatterns) {
+      if (lowerText.includes(pattern)) return true;
+    }
   }
 
   return false;
@@ -831,7 +908,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.8 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.9 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
