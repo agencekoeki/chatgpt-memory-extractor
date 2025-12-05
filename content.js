@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.4 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.5 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 let isExtracting = false;
@@ -69,6 +69,54 @@ function diagAllButtons(container = document) {
 
 // ========== UTILITIES ==========
 const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// Simulation de clic robuste pour éléments React/Radix
+function simulateClick(element) {
+  if (!element) return false;
+
+  log(`Simulation clic sur: ${element.tagName} (${element.getAttribute('data-testid') || element.getAttribute('aria-label') || 'no-id'})`, 'debug');
+
+  // Méthode 1: Events natifs complets (mousedown -> mouseup -> click)
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+
+  const eventOptions = {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX: x,
+    clientY: y,
+    button: 0
+  };
+
+  // Séquence complète d'événements souris
+  element.dispatchEvent(new PointerEvent('pointerdown', { ...eventOptions, pointerType: 'mouse' }));
+  element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+  element.dispatchEvent(new PointerEvent('pointerup', { ...eventOptions, pointerType: 'mouse' }));
+  element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+  element.dispatchEvent(new MouseEvent('click', eventOptions));
+
+  // Méthode 2: click() natif en backup
+  try {
+    element.click();
+  } catch (e) {
+    log(`click() natif échoué: ${e.message}`, 'warning');
+  }
+
+  // Méthode 3: Focus + Enter pour les éléments avec role="button"
+  if (element.getAttribute('role') === 'button') {
+    try {
+      element.focus();
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+      element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+    } catch (e) {
+      log(`Keyboard event échoué: ${e.message}`, 'warning');
+    }
+  }
+
+  return true;
+}
 
 async function waitFor(selector, timeout = 10000) {
   const start = Date.now();
@@ -371,7 +419,7 @@ async function navigateToMemories() {
   }
 
   log('Clic sur menu utilisateur...', 'info');
-  step1.element.click();
+  simulateClick(step1.element);
 
   // Attendre que le menu s'ouvre (cherche role="menu" ou un popover)
   log('Attente ouverture du menu...', 'debug');
@@ -399,7 +447,7 @@ async function navigateToMemories() {
   }
 
   log('Clic sur Paramètres...', 'info');
-  step2.element.click();
+  simulateClick(step2.element);
   await wait(1200);
 
   // ÉTAPE 3
@@ -408,7 +456,7 @@ async function navigateToMemories() {
     log('Étape 3: Personnalisation non trouvé, on continue...', 'warning');
   } else {
     log('Clic sur Personnalisation...', 'info');
-    step3.element.click();
+    simulateClick(step3.element);
     await wait(800);
   }
 
@@ -426,7 +474,7 @@ async function navigateToMemories() {
   }
 
   log('Clic sur Gérer...', 'info');
-  step5.element.click();
+  simulateClick(step5.element);
   await wait(1500);
 
   return { success: true };
@@ -684,7 +732,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.4 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.5 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
