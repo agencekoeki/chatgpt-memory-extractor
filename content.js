@@ -100,13 +100,27 @@ async function navigateToMemories() {
   updateStatus('loading', 'Navigation vers Personnalisation...');
   await wait(500);
 
-  const personalizationTab = settingsModal.querySelector('[data-testid="personalization-tab"]') ||
-                              findButtonByText(['personnalisation', 'personalization']);
+  // Find the Personnalisation tab - it's a button with role="tab" containing "Personnalisation" text
+  let personalizationTab = settingsModal.querySelector('[data-testid="personalization-tab"]');
+
+  if (!personalizationTab) {
+    // Search for button/tab containing "Personnalisation" text (case insensitive)
+    const allTabs = settingsModal.querySelectorAll('button[role="tab"], button, [role="tab"]');
+    for (const tab of allTabs) {
+      const tabText = tab.textContent?.toLowerCase();
+      if (tabText?.includes('personnalisation') || tabText?.includes('personalization')) {
+        personalizationTab = tab;
+        break;
+      }
+    }
+  }
 
   if (personalizationTab) {
     log('Onglet Personnalisation trouvé', 'success');
     personalizationTab.click();
     await wait(1000);
+  } else {
+    log('Onglet Personnalisation non trouvé', 'warning');
   }
 
   // Step 5: Find scrollable container INSIDE the settings modal and scroll to Memory section
