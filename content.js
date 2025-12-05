@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.11 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.12 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 // Évite double chargement
@@ -584,46 +584,73 @@ async function extractMemories() {
   log('Extraction des éléments mémorisés...', 'info');
   updateStatus('loading', 'Extraction en cours...');
 
-  // Cherche SPÉCIFIQUEMENT la modale avec le titre "Éléments mémorisés"
-  // Il peut y avoir plusieurs [role="dialog"] sur la page
+  // Cherche la modale des mémoires avec différents sélecteurs
   let modal = null;
-  const dialogs = document.querySelectorAll('[role="dialog"]');
-  log(`${dialogs.length} dialog(s) trouvé(s) sur la page`, 'debug');
 
-  for (const dialog of dialogs) {
-    // Cherche un header/titre avec "mémorisés" ou "memorized"
-    const header = dialog.querySelector('h1, h2, h3, [class*="font-semibold"], [class*="font-bold"]');
-    const headerText = header?.textContent?.toLowerCase() || '';
+  // MÉTHODE 1: Sélecteur exact data-testid (trouvé dans DevTools)
+  modal = document.querySelector('[data-testid="modal-memories"]');
+  if (modal) {
+    log('Modale trouvée via data-testid="modal-memories"', 'success');
+  }
 
-    log(`  Dialog header: "${headerText.substring(0, 50)}"`, 'debug');
+  // MÉTHODE 2: Popover avec titre "Éléments mémorisés"
+  if (!modal) {
+    const popovers = document.querySelectorAll('.popover, [class*="popover"], [data-radix-popper-content-wrapper] > div');
+    log(`${popovers.length} popover(s) trouvé(s)`, 'debug');
 
-    if (headerText.includes('mémorisés') || headerText.includes('memorized') || headerText.includes('memories')) {
-      modal = dialog;
-      log(`  >> C'est la bonne modale!`, 'success');
-      break;
+    for (const pop of popovers) {
+      const hasMemoryTitle = pop.textContent?.includes('Éléments mémorisés') ||
+                             pop.textContent?.includes('Memorized') ||
+                             pop.textContent?.includes('Remplissage');
+      const hasTable = pop.querySelector('table');
+
+      if (hasMemoryTitle && hasTable) {
+        modal = pop;
+        log('Modale trouvée via popover + titre', 'success');
+        break;
+      }
     }
+  }
 
-    // Fallback: cherche si la modale contient une table avec plusieurs lignes
-    const table = dialog.querySelector('table');
-    const rows = table?.querySelectorAll('tr');
-    if (rows && rows.length > 2) {
-      // Vérifie que ce n'est pas une modale de settings générique
-      const hasDeleteButtons = dialog.querySelectorAll('button[aria-label*="supprimer"], button[aria-label*="delete"], button svg').length > 2;
-      if (hasDeleteButtons) {
-        log(`  >> Modale avec table de ${rows.length} lignes et boutons delete`, 'success');
+  // MÉTHODE 3: Cherche une table avec le bon contenu (visible memories)
+  if (!modal) {
+    const tables = document.querySelectorAll('table');
+    log(`${tables.length} table(s) trouvée(s)`, 'debug');
+
+    for (const table of tables) {
+      const rows = table.querySelectorAll('tr');
+      // La table des mémoires a plusieurs lignes avec du texte long
+      if (rows.length >= 2) {
+        const firstRowText = rows[0]?.textContent?.trim() || '';
+        // Les mémoires commencent souvent par un nom ou "Le/La/Les"
+        if (firstRowText.length > 50 && !firstRowText.includes('Faire référence')) {
+          modal = table.closest('[class*="popover"]') || table.closest('[data-state="open"]') || table.parentElement?.parentElement;
+          log(`Modale trouvée via table avec ${rows.length} lignes`, 'success');
+          break;
+        }
+      }
+    }
+  }
+
+  // MÉTHODE 4 (fallback): role="dialog"
+  if (!modal) {
+    const dialogs = document.querySelectorAll('[role="dialog"]');
+    for (const dialog of dialogs) {
+      if (dialog.textContent?.includes('Éléments mémorisés') || dialog.textContent?.includes('Remplissage')) {
         modal = dialog;
+        log('Modale trouvée via role="dialog"', 'success');
         break;
       }
     }
   }
 
   if (!modal) {
-    log('Aucune modale "Éléments mémorisés" trouvée', 'error');
+    log('Aucune modale mémoires trouvée (essayé: data-testid, popover, table, dialog)', 'error');
     return { success: false, error: 'Modale mémoires non trouvée', memories: [] };
   }
 
   log('Modale "Éléments mémorisés" détectée', 'success');
-  log(`Contenu modale (150 chars): "${modal.textContent?.substring(0, 150)}"`, 'debug');
+  log(`Contenu modale (200 chars): "${modal.textContent?.substring(0, 200)}"`, 'debug');
 
   const scrollContainer = modal.querySelector('[class*="overflow-y-auto"]') ||
                           modal.querySelector('table')?.parentElement ||
@@ -938,7 +965,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.11 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.12 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
