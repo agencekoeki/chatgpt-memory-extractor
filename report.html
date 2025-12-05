@@ -430,6 +430,144 @@
       user-select: none;
     }
 
+    /* ===== VIRAL ELEMENTS ===== */
+    .exposure-meter {
+      width: 100%;
+      max-width: 400px;
+      margin: 32px auto;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 0.9s forwards;
+    }
+
+    .exposure-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .exposure-title {
+      color: var(--text-secondary);
+    }
+
+    .exposure-value {
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .exposure-value.low { color: var(--success); }
+    .exposure-value.medium { color: var(--warning); }
+    .exposure-value.high { color: #fb923c; }
+    .exposure-value.critical { color: var(--danger); }
+
+    .exposure-track {
+      height: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .exposure-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 1.5s ease-out;
+      position: relative;
+    }
+
+    .exposure-fill.low { background: linear-gradient(90deg, #22c55e, #4ade80); }
+    .exposure-fill.medium { background: linear-gradient(90deg, #eab308, #fbbf24); }
+    .exposure-fill.high { background: linear-gradient(90deg, #f97316, #fb923c); }
+    .exposure-fill.critical { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+    .exposure-fill::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+      animation: pulse-right 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-right {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    .archetype-badge {
+      display: inline-block;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+      border: 2px solid var(--accent);
+      border-radius: 30px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-light);
+      margin: 20px 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1.1s forwards;
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    .revelations {
+      margin: 40px auto;
+      max-width: 500px;
+      text-align: left;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1.3s forwards;
+    }
+
+    .revelations-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .revelation-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      transition: all 0.3s ease;
+    }
+
+    .revelation-item:hover {
+      border-color: var(--accent);
+      transform: translateX(5px);
+    }
+
+    .revelation-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .revelation-text {
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+
+    .revelation-text .blur {
+      filter: blur(5px);
+      user-select: none;
+      transition: filter 0.3s ease;
+    }
+
+    .counter-animate {
+      display: inline-block;
+      transition: all 0.3s ease;
+    }
+
     .privacy-mini.public { color: #4ade80; }
     .privacy-mini.semi-prive { color: #facc15; }
     .privacy-mini.prive { color: #fb923c; }
@@ -1035,15 +1173,31 @@
   <div class="landing" id="landing">
     <div class="landing-glow"></div>
     <div class="landing-content">
-      <div class="landing-hook">Analyse psychologique IA</div>
+      <div class="landing-hook">Ce que l'IA sait de toi</div>
       <h1 class="landing-title">
         Bonjour,
         <span class="name" id="landingName">...</span>
       </h1>
       <p class="landing-subtitle">
-        ChatGPT a memorise <strong id="landingCount">0</strong> informations sur toi.<br>
-        Decouvre ce que l'IA a vraiment retenu...
+        ChatGPT a memorise <strong id="landingCount" class="counter-animate">0</strong> informations sur toi.<br>
+        Certaines sont... surprenantes.
       </p>
+
+      <!-- ARCHETYPE BADGE -->
+      <div class="archetype-badge" id="archetypeBadge">
+        Chargement...
+      </div>
+
+      <!-- EXPOSURE METER -->
+      <div class="exposure-meter">
+        <div class="exposure-label">
+          <span class="exposure-title">Niveau d'exposition</span>
+          <span class="exposure-value" id="exposureValue">--%</span>
+        </div>
+        <div class="exposure-track">
+          <div class="exposure-fill" id="exposureFill" style="width: 0%"></div>
+        </div>
+      </div>
 
       <div class="landing-stats">
         <div class="landing-stat">
@@ -1060,20 +1214,24 @@
         </div>
       </div>
 
+      <!-- TOP REVELATIONS -->
+      <div class="revelations" id="revelations">
+        <div class="revelations-title">L'IA a detecte que tu...</div>
+        <div id="revelationsList">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
       <button class="landing-cta" id="landingCta">
-        Decouvrir mon profil psychologique
+        Voir mon analyse complete
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
       </button>
 
       <p class="landing-disclaimer">
-        Basee sur l'analyse semantique de tes conversations
+        Analyse basee sur tes conversations avec ChatGPT
       </p>
-
-      <div class="landing-insights" id="landingInsights">
-        <!-- Teasers will be filled by JS -->
-      </div>
     </div>
   </div>
 

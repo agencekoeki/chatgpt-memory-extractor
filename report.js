@@ -27,25 +27,186 @@ function populateLanding(results, memories) {
   const firstName = results?.persona?.mask?.profile?.firstName || 'Visiteur';
   document.getElementById('landingName').textContent = firstName;
 
-  // Memory count
+  // Memory count with animation
   const count = results?.memoriesCount || memories.length || 0;
-  document.getElementById('landingCount').textContent = count;
+  animateCounter('landingCount', count);
 
   // Privacy stats
   const privacy = results?.statistics?.byPrivacy || {};
   const publicCount = privacy['public'] || 0;
-  const sensitiveCount = (privacy['prive'] || 0) + (privacy['tres-prive'] || 0);
+  const semiPriveCount = privacy['semi-prive'] || 0;
+  const priveCount = privacy['prive'] || 0;
+  const tresPrive = privacy['tres-prive'] || 0;
+  const sensitiveCount = priveCount + tresPrive;
 
-  document.getElementById('landingPublic').textContent = publicCount;
-  document.getElementById('landingPrivate').textContent = sensitiveCount;
+  animateCounter('landingPublic', publicCount);
+  animateCounter('landingPrivate', sensitiveCount);
 
   // Domains count
   const domains = results?.persona?.mask?.expertiseDomains?.length ||
                   results?.statistics?.categoryDistribution?.length || 0;
-  document.getElementById('landingDomains').textContent = domains;
+  animateCounter('landingDomains', domains);
 
-  // Generate teaser insights with blur effect
-  generateTeaserInsights(results);
+  // Calculate exposure score (weighted by privacy level)
+  const total = publicCount + semiPriveCount + priveCount + tresPrive;
+  const exposureScore = total > 0
+    ? Math.round(((semiPriveCount * 0.3) + (priveCount * 0.6) + (tresPrive * 1.0)) / total * 100)
+    : 0;
+  setExposureScore(exposureScore);
+
+  // Set archetype badge
+  const archetype = generateArchetype(results);
+  document.getElementById('archetypeBadge').textContent = archetype;
+
+  // Generate revelations
+  generateRevelations(results);
+}
+
+// Animated counter
+function animateCounter(elementId, target) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const duration = 1500;
+  const start = 0;
+  const startTime = performance.now();
+
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // Easing function
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + (target - start) * eased);
+
+    el.textContent = current;
+
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+// Exposure score meter
+function setExposureScore(score) {
+  const valueEl = document.getElementById('exposureValue');
+  const fillEl = document.getElementById('exposureFill');
+
+  if (!valueEl || !fillEl) return;
+
+  // Determine level
+  let level = 'low';
+  if (score >= 70) level = 'critical';
+  else if (score >= 50) level = 'high';
+  else if (score >= 30) level = 'medium';
+
+  valueEl.textContent = score + '%';
+  valueEl.className = 'exposure-value ' + level;
+
+  // Animate fill after a delay
+  setTimeout(() => {
+    fillEl.className = 'exposure-fill ' + level;
+    fillEl.style.width = score + '%';
+  }, 500);
+}
+
+// Generate archetype based on data
+function generateArchetype(results) {
+  const mask = results?.persona?.mask;
+  const stats = results?.statistics;
+
+  if (!mask && !stats) return 'PROFIL MYSTERE';
+
+  // Get dominant category
+  const topCategory = stats?.categoryDistribution?.[0]?.category;
+  const type = mask?.type || '';
+
+  const archetypes = {
+    'expertise': ['EXPERT TECHNIQUE', 'SPECIALISTE', 'MAITRE DU DOMAINE', 'CONNAISSEUR'],
+    'experience': ['VETERAIN', 'EXPLORATEUR', 'AVENTURIER DIGITAL', 'NAVIGATEUR'],
+    'authority': ['LEADER D\'OPINION', 'INFLUENCEUR', 'VOIX AUTORISEE', 'REFERENCE'],
+    'trust': ['CONFIDENT', 'PILIER DE CONFIANCE', 'ANCRE STABLE', 'GARDIEN'],
+    'voice': ['COMMUNICATEUR', 'NARRATEUR', 'CONTEUR', 'VOIX UNIQUE']
+  };
+
+  const categoryArchetypes = archetypes[topCategory] || ['PROFIL UNIQUE'];
+  const randomIndex = Math.floor(Math.random() * categoryArchetypes.length);
+
+  return categoryArchetypes[randomIndex];
+}
+
+// Generate shocking revelations
+function generateRevelations(results) {
+  const container = document.getElementById('revelationsList');
+  if (!container) return;
+
+  const revelations = [];
+  const mask = results?.persona?.mask;
+  const stats = results?.statistics;
+  const extractions = results?.extractions || [];
+
+  // Find interesting data points
+  if (mask?.expertiseDomains?.[0]) {
+    revelations.push({
+      icon: '🧠',
+      text: 'es passionne par',
+      blur: mask.expertiseDomains[0]
+    });
+  }
+
+  if (mask?.profile?.currentSituation) {
+    revelations.push({
+      icon: '💼',
+      text: 'travailles sur',
+      blur: truncate(mask.profile.currentSituation, 35)
+    });
+  }
+
+  if (mask?.bias) {
+    revelations.push({
+      icon: '🎯',
+      text: 'as un biais vers',
+      blur: truncate(mask.bias, 30)
+    });
+  }
+
+  // Find a sensitive memory
+  const sensitiveMemory = extractions.find(e =>
+    e.privacy_level === 'prive' || e.privacy_level === 'tres-prive'
+  );
+  if (sensitiveMemory) {
+    revelations.push({
+      icon: '🔐',
+      text: 'as confie que',
+      blur: truncate(sensitiveMemory.extracted_fact || sensitiveMemory.text, 35)
+    });
+  }
+
+  if (stats?.topTags?.[0]) {
+    revelations.push({
+      icon: '🔄',
+      text: 'parles souvent de',
+      blur: stats.topTags[0].tag
+    });
+  }
+
+  if (mask?.limits?.[0]) {
+    revelations.push({
+      icon: '⚠️',
+      text: 'avoues ne pas maitriser',
+      blur: mask.limits[0]
+    });
+  }
+
+  // Render top 4 revelations
+  container.innerHTML = revelations.slice(0, 4).map(r => `
+    <div class="revelation-item">
+      <span class="revelation-icon">${r.icon}</span>
+      <span class="revelation-text">${r.text} <span class="blur">${escapeHtml(r.blur)}</span></span>
+    </div>
+  `).join('');
 }
 
 function generateTeaserInsights(results) {
