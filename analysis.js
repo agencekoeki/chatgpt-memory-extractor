@@ -74,7 +74,10 @@ export class AnalysisPipeline {
   // ========== AGENT 1: EXTRACTEUR E-E-A-T ==========
   async runExtractor(memories, onProgress) {
     const extractorModel = APIClient.getModelForTask('labeler', this.provider);
-    const extractions = [];
+    const extractions = new Array(memories.length);
+
+    // Parallel batch size (adjust based on rate limits)
+    const BATCH_SIZE = 10;
 
     const EEAT_TAXONOMY = {
       expertise: ['domaine', 'compétence', 'outil', 'méthodologie', 'certification', 'formation'],
@@ -114,9 +117,10 @@ EXTRAIS en JSON:
 
 JSON uniquement, pas de markdown.`;
 
-    for (let i = 0; i < memories.length; i++) {
+    // Process single memory
+    const processMemory = async (memory, index) => {
       try {
-        const response = await this.api.call(prompt(memories[i]), {
+        const response = await this.api.call(prompt(memory), {
           provider: this.provider,
           model: extractorModel,
           maxTokens: 200
@@ -125,38 +129,60 @@ JSON uniquement, pas de markdown.`;
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          extractions.push({
-            memoryId: i,
-            text: memories[i].text,
+          return {
+            memoryId: index,
+            text: memory.text,
             ...parsed
-          });
+          };
         } else {
-          extractions.push({
-            memoryId: i,
-            text: memories[i].text,
+          return {
+            memoryId: index,
+            text: memory.text,
             categories: [],
             tags: [],
-            extracted_fact: memories[i].text,
+            extracted_fact: memory.text,
             persona_value: '',
             confidence: 0.3
-          });
+          };
         }
       } catch (e) {
-        extractions.push({
-          memoryId: i,
-          text: memories[i].text,
+        return {
+          memoryId: index,
+          text: memory.text,
           categories: [],
           tags: [],
           error: e.message,
           confidence: 0
-        });
+        };
       }
+    };
 
-      onProgress(i + 1, memories.length);
-      if (i < memories.length - 1) await this.delay(100);
+    // Process in parallel batches
+    let completed = 0;
+    for (let i = 0; i < memories.length; i += BATCH_SIZE) {
+      const batch = memories.slice(i, i + BATCH_SIZE);
+      const batchIndices = batch.map((_, j) => i + j);
+
+      // Run batch in parallel
+      const results = await Promise.all(
+        batch.map((memory, j) => processMemory(memory, i + j))
+      );
+
+      // Store results in correct positions
+      results.forEach((result, j) => {
+        extractions[i + j] = result;
+      });
+
+      completed += batch.length;
+      onProgress(completed, memories.length);
+
+      // Small delay between batches to avoid rate limits
+      if (i + BATCH_SIZE < memories.length) {
+        await this.delay(200);
+      }
     }
 
-    return extractions;
+    return extractions.filter(e => e); // Remove any undefined
   }
 
   // ========== AGENT 2: STATISTICIEN ==========
