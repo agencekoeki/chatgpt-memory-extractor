@@ -1,127 +1,222 @@
-// ChatGPT Memory Extractor - Popup v4.0
-// With AI Analysis Integration
+// ChatGPT Memory Extractor - Popup v4.5
+// Multi-screen immersive flow
 
-let extractedMemories = [];
+// ========== STATE ==========
+let currentScreen = 'splash';
+let memories = [];
+let analysisResults = null;
+let hasApiKeys = false;
+let isOnChatGPT = false;
 let isExtracting = false;
 let isAnalyzing = false;
-let hasApiKeys = false;
 
-// DOM Elements
-const $ = id => document.getElementById(id);
-const statusCard = $('statusCard');
-const statusText = $('statusText');
-const progressSection = $('progressSection');
-const progressFill = $('progressFill');
-const progressText = $('progressText');
-const extractBtn = $('extractBtn');
-const btnText = $('btnText');
-const resultsSection = $('resultsSection');
-const resultsCount = $('resultsCount');
-const resultsPreview = $('resultsPreview');
-const saveBtn = $('saveBtn');
-const copyBtn = $('copyBtn');
-const analyzeBtn = $('analyzeBtn');
-const analyzeBtnText = $('analyzeBtnText');
-const apiBadge = $('apiBadge');
-const analysisProgress = $('analysisProgress');
-const analysisStage = $('analysisStage');
-const analysisProgressFill = $('analysisProgressFill');
-const reportBtn = $('reportBtn');
-const settingsBtn = $('settingsBtn');
-const consoleSection = document.querySelector('.console-section');
-const consoleToggle = $('consoleToggle');
-const consoleContent = $('consoleContent');
-const consoleLogs = $('consoleLogs');
+// ========== DOM ELEMENTS ==========
+const screens = {
+  splash: document.getElementById('screen-splash'),
+  extract: document.getElementById('screen-extract'),
+  analyze: document.getElementById('screen-analyze'),
+  complete: document.getElementById('screen-complete')
+};
 
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadState();
   setupListeners();
-  await checkApiKeys();
-  await checkPage();
-  await loadStoredMemories();
+  updateSplashScreen();
 });
 
-function setupListeners() {
-  extractBtn.addEventListener('click', startExtraction);
-  saveBtn.addEventListener('click', saveToFile);
-  copyBtn.addEventListener('click', copyToClipboard);
-  analyzeBtn.addEventListener('click', startAnalysis);
-  reportBtn.addEventListener('click', openReport);
-  settingsBtn.addEventListener('click', openSettings);
-  consoleToggle.addEventListener('click', toggleConsole);
-}
-
-// ========== CHECK API KEYS ==========
-async function checkApiKeys() {
+// ========== LOAD STATE ==========
+async function loadState() {
   try {
+    // Load memories
+    memories = await chrome.runtime.sendMessage({ action: 'getMemories' }) || [];
+
+    // Load analysis results
+    analysisResults = await chrome.runtime.sendMessage({ action: 'getAnalysisResults' });
+
+    // Check API keys
     const keys = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
     hasApiKeys = keys && (keys.anthropic || keys.openai || keys.google);
 
-    if (hasApiKeys) {
-      apiBadge.textContent = 'Prêt';
-      apiBadge.classList.remove('warning');
-    } else {
-      apiBadge.textContent = 'Configurer';
-      apiBadge.classList.add('warning');
-    }
-  } catch (e) {
-    console.error('Error checking API keys:', e);
-  }
-}
+    // Check if on ChatGPT
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    isOnChatGPT = tab?.url?.includes('chatgpt.com');
 
-// ========== LOAD STORED MEMORIES ==========
-async function loadStoredMemories() {
-  try {
-    const memories = await chrome.runtime.sendMessage({ action: 'getMemories' });
-    if (memories && memories.length > 0) {
-      extractedMemories = memories;
-      displayResults();
-
-      // Check if analysis exists
-      const analysis = await chrome.runtime.sendMessage({ action: 'getAnalysisResults' });
-      if (analysis) {
-        reportBtn.disabled = false;
+    // Inject content script if on ChatGPT
+    if (isOnChatGPT) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+      } catch (e) {
+        // Already injected
       }
     }
   } catch (e) {
-    console.error('Error loading stored memories:', e);
+    console.error('Error loading state:', e);
   }
 }
 
-// ========== CHECK PAGE ==========
-async function checkPage() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+// ========== SETUP LISTENERS ==========
+function setupListeners() {
+  // Splash screen
+  document.getElementById('btnDiscover').addEventListener('click', () => goToScreen('extract'));
+  document.getElementById('btnSettings').addEventListener('click', openSettings);
 
-    if (!tab.url?.includes('chatgpt.com')) {
-      setStatus('error', 'Ouvrez chatgpt.com');
-      return;
+  // Extract screen
+  document.getElementById('btnStartExtract').addEventListener('click', startExtraction);
+  document.getElementById('btnBackToSplash').addEventListener('click', () => goToScreen('splash'));
+  document.getElementById('btnToAnalysis').addEventListener('click', () => goToScreen('analyze'));
+  document.getElementById('btnSkipExtract').addEventListener('click', () => goToScreen('analyze'));
+
+  // Analyze screen
+  document.getElementById('btnStartAnalyze').addEventListener('click', startAnalysis);
+  document.getElementById('btnConfigApi').addEventListener('click', openSettings);
+  document.getElementById('btnBackToExtract').addEventListener('click', () => goToScreen('extract'));
+  document.getElementById('btnToReport').addEventListener('click', openReport);
+  document.getElementById('btnSkipAnalyze').addEventListener('click', () => goToScreen('complete'));
+
+  // Complete screen
+  document.getElementById('btnOpenReport').addEventListener('click', openReport);
+  document.getElementById('btnRestart').addEventListener('click', restart);
+  document.getElementById('btnExportJson').addEventListener('click', exportJson);
+
+  // Message listener
+  chrome.runtime.onMessage.addListener(handleMessage);
+}
+
+// ========== SCREEN NAVIGATION ==========
+function goToScreen(screenId) {
+  // Exit current screen
+  screens[currentScreen].classList.remove('active');
+  screens[currentScreen].classList.add('exit-left');
+
+  // Enter new screen
+  setTimeout(() => {
+    screens[currentScreen].classList.remove('exit-left');
+    screens[screenId].classList.add('active');
+    currentScreen = screenId;
+
+    // Update screen state
+    switch (screenId) {
+      case 'extract':
+        updateExtractScreen();
+        break;
+      case 'analyze':
+        updateAnalyzeScreen();
+        break;
+      case 'complete':
+        updateCompleteScreen();
+        break;
     }
+  }, 150);
+}
 
-    // Inject content script
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      });
-    } catch (e) {
-      // Already injected
-    }
+// ========== UPDATE SPLASH SCREEN ==========
+function updateSplashScreen() {
+  const initials = document.getElementById('personaInitials');
+  const name = document.getElementById('personaName');
+  const tagline = document.getElementById('personaTagline');
 
-    // On ChatGPT = ready to extract
-    setStatus('ready', 'Prêt à extraire');
-    extractBtn.disabled = false;
+  if (analysisResults?.persona?.mask?.profile) {
+    const profile = analysisResults.persona.mask.profile;
+    const firstName = profile.firstName || '';
+    const lastName = profile.lastName || '';
 
-  } catch (error) {
-    log('Erreur: ' + error.message, 'error');
-    setStatus('error', 'Erreur de connexion');
+    initials.textContent = (firstName[0] || '?') + (lastName[0] || '');
+    name.textContent = `${firstName} ${lastName}`.trim() || 'Votre Persona';
+    tagline.textContent = analysisResults.persona.mask.mission || 'Decouvrez qui vous etes selon ChatGPT';
+  } else if (memories.length > 0) {
+    initials.textContent = '?';
+    name.textContent = 'Votre Persona';
+    tagline.textContent = `${memories.length} souvenirs prets a analyser`;
+  } else {
+    initials.textContent = '?';
+    name.textContent = 'Votre Persona';
+    tagline.textContent = 'Decouvrez qui vous etes selon ChatGPT';
   }
 }
 
-// ========== STATUS ==========
-function setStatus(type, text) {
-  statusCard.className = 'status-card ' + type;
-  statusText.textContent = text;
+// ========== UPDATE EXTRACT SCREEN ==========
+function updateExtractScreen() {
+  const notReady = document.getElementById('extractNotReady');
+  const ready = document.getElementById('extractReady');
+  const extracting = document.getElementById('extracting');
+  const done = document.getElementById('extractDone');
+  const btnContinue = document.getElementById('btnToAnalysis');
+  const btnSkip = document.getElementById('btnSkipExtract');
+
+  // Hide all states
+  notReady.classList.add('hidden');
+  ready.classList.add('hidden');
+  extracting.classList.add('hidden');
+  done.classList.add('hidden');
+  btnSkip.classList.add('hidden');
+
+  if (isExtracting) {
+    extracting.classList.remove('hidden');
+    btnContinue.disabled = true;
+  } else if (memories.length > 0) {
+    done.classList.remove('hidden');
+    document.getElementById('extractDoneCount').textContent = `${memories.length} souvenirs extraits`;
+    btnContinue.disabled = false;
+    btnSkip.classList.remove('hidden');
+  } else if (isOnChatGPT) {
+    ready.classList.remove('hidden');
+    btnContinue.disabled = true;
+  } else {
+    notReady.classList.remove('hidden');
+    btnContinue.disabled = true;
+  }
+}
+
+// ========== UPDATE ANALYZE SCREEN ==========
+function updateAnalyzeScreen() {
+  const noApi = document.getElementById('analyzeNoApi');
+  const ready = document.getElementById('analyzeReady');
+  const analyzing = document.getElementById('analyzing');
+  const done = document.getElementById('analyzeDone');
+  const btnReport = document.getElementById('btnToReport');
+  const btnSkip = document.getElementById('btnSkipAnalyze');
+
+  // Hide all states
+  noApi.classList.add('hidden');
+  ready.classList.add('hidden');
+  analyzing.classList.add('hidden');
+  done.classList.add('hidden');
+  btnSkip.classList.add('hidden');
+
+  if (isAnalyzing) {
+    analyzing.classList.remove('hidden');
+    btnReport.disabled = true;
+  } else if (analysisResults?.success) {
+    done.classList.remove('hidden');
+    btnReport.disabled = false;
+    btnSkip.classList.remove('hidden');
+  } else if (!hasApiKeys) {
+    noApi.classList.remove('hidden');
+    btnReport.disabled = true;
+  } else {
+    ready.classList.remove('hidden');
+    document.getElementById('analyzeReadyCount').textContent = `${memories.length} souvenirs a traiter`;
+    btnReport.disabled = true;
+  }
+}
+
+// ========== UPDATE COMPLETE SCREEN ==========
+function updateCompleteScreen() {
+  const name = document.getElementById('completeName');
+  const tagline = document.getElementById('completeTagline');
+
+  if (analysisResults?.persona?.mask?.profile) {
+    const profile = analysisResults.persona.mask.profile;
+    name.textContent = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Votre Persona';
+    tagline.textContent = 'est pret a etre decouvert';
+  } else {
+    name.textContent = 'Votre Persona';
+    tagline.textContent = 'est pret a etre decouvert';
+  }
 }
 
 // ========== EXTRACTION ==========
@@ -130,196 +225,167 @@ async function startExtraction() {
 
   try {
     isExtracting = true;
-    extractBtn.disabled = true;
-    btnText.textContent = 'Extraction...';
-
-    setStatus('loading', 'Navigation automatique...');
-    progressSection.classList.remove('hidden');
-    resultsSection.classList.add('hidden');
-    progressFill.style.width = '0%';
+    updateExtractScreen();
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    log('Lancement extraction automatique...', 'info');
-
-    // Send extraction command - content script handles everything
-    const response = await sendMessage(tab.id, { action: 'autoExtract' });
+    const response = await sendTabMessage(tab.id, { action: 'autoExtract' });
 
     if (!response) {
-      throw new Error('Pas de réponse - Rafraîchissez la page');
+      throw new Error('Pas de reponse - Rafraichissez la page');
     }
 
-    if (response.started) {
-      setStatus('loading', 'Extraction en cours...');
-      log('Extraction démarrée', 'info');
-    } else if (response.error) {
-      throw new Error(response.message || 'Échec');
+    if (response.error) {
+      throw new Error(response.message || 'Echec de l\'extraction');
     }
 
   } catch (error) {
-    log('Erreur: ' + error.message, 'error');
-    setStatus('error', error.message);
-    resetUI();
-  }
-}
-
-function resetUI() {
-  isExtracting = false;
-  extractBtn.disabled = false;
-  btnText.textContent = 'Extraire les souvenirs';
-  progressSection.classList.add('hidden');
-}
-
-// ========== RESULTS ==========
-function displayResults() {
-  resultsSection.classList.remove('hidden');
-  resultsCount.textContent = extractedMemories.length + ' souvenirs extraits';
-
-  let preview = '';
-  const max = Math.min(3, extractedMemories.length);
-
-  for (let i = 0; i < max; i++) {
-    const text = extractedMemories[i].text;
-    preview += (i + 1) + '. ' + text.substring(0, 80) + (text.length > 80 ? '...' : '') + '\n\n';
-  }
-
-  if (extractedMemories.length > max) {
-    preview += '+ ' + (extractedMemories.length - max) + ' autres...';
-  }
-
-  resultsPreview.textContent = preview;
-
-  // Enable analyze button if we have memories
-  if (extractedMemories.length > 0) {
-    analyzeBtn.disabled = false;
+    console.error('Extraction error:', error);
+    isExtracting = false;
+    updateExtractScreen();
   }
 }
 
 // ========== ANALYSIS ==========
 async function startAnalysis() {
-  if (isAnalyzing) return;
-
-  if (!hasApiKeys) {
-    openSettings();
-    return;
-  }
-
-  if (extractedMemories.length === 0) {
-    log('Aucun souvenir à analyser', 'warning');
-    return;
-  }
+  if (isAnalyzing || memories.length === 0) return;
 
   try {
     isAnalyzing = true;
-    analyzeBtn.disabled = true;
-    analyzeBtnText.textContent = 'Analyse en cours...';
-    analysisProgress.classList.remove('hidden');
+    updateAnalyzeScreen();
 
-    log('Démarrage de l\'analyse IA...', 'info');
+    // Set first agent as active
+    setAgentState('extractor', 'active');
 
-    // Start analysis via background script
     const response = await chrome.runtime.sendMessage({
       action: 'startAnalysis',
-      memories: extractedMemories
+      memories: memories
     });
 
     if (response.error) {
       throw new Error(response.error);
     }
 
-    // Open report page immediately to show progress
-    openReport();
-    log('Rapport ouvert - analyse en cours...', 'info');
-
   } catch (error) {
-    log('Erreur analyse: ' + error.message, 'error');
-    resetAnalysisUI();
+    console.error('Analysis error:', error);
+    isAnalyzing = false;
+    updateAnalyzeScreen();
   }
 }
 
-function resetAnalysisUI() {
-  isAnalyzing = false;
-  analyzeBtn.disabled = false;
-  analyzeBtnText.textContent = 'Analyser avec l\'IA';
-  analysisProgress.classList.add('hidden');
-}
+// ========== MESSAGE HANDLER ==========
+function handleMessage(request, sender, sendResponse) {
+  switch (request.action) {
+    case 'progress':
+      document.getElementById('extractProgress').textContent = request.count;
+      const pct = Math.min(request.count / 50 * 100, 95);
+      document.getElementById('extractProgressBar').style.width = pct + '%';
+      break;
 
-// ========== SAVE ==========
-function saveToFile() {
-  if (extractedMemories.length === 0) return;
+    case 'extractionComplete':
+      isExtracting = false;
+      if (request.result.success && request.result.memories.length > 0) {
+        memories = request.result.memories;
+        chrome.runtime.sendMessage({ action: 'saveMemories', memories });
+      }
+      updateExtractScreen();
+      updateSplashScreen();
+      break;
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const filename = 'chatgpt-memories-' + timestamp + '.txt';
+    case 'analysisProgress':
+      handleAnalysisProgress(request);
+      break;
 
-  let content = '='.repeat(50) + '\n';
-  content += '         CHATGPT MEMORY EXPORT\n';
-  content += '='.repeat(50) + '\n\n';
-  content += 'Date: ' + new Date().toLocaleString('fr-FR') + '\n';
-  content += 'Total: ' + extractedMemories.length + ' souvenirs\n';
-  content += '='.repeat(50) + '\n\n';
+    case 'analysisComplete':
+      isAnalyzing = false;
+      if (request.results.success) {
+        analysisResults = request.results;
+        setAgentState('extractor', 'done');
+        setAgentState('statistician', 'done');
+        setAgentState('architect', 'done');
+        setAgentState('charterer', 'done');
 
-  extractedMemories.forEach((memory, i) => {
-    content += '--- #' + (i + 1) + ' ---\n';
-    content += memory.text + '\n';
-    content += '\n' + '-'.repeat(40) + '\n\n';
-  });
-
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  log('Sauvegardé: ' + filename, 'success');
-}
-
-// ========== COPY ==========
-async function copyToClipboard() {
-  if (extractedMemories.length === 0) return;
-
-  const text = extractedMemories.map((m, i) => (i + 1) + '. ' + m.text).join('\n\n');
-
-  try {
-    await navigator.clipboard.writeText(text);
-    log('Copié dans le presse-papier', 'success');
-    copyBtn.querySelector('span')?.remove();
-    const span = document.createElement('span');
-    span.textContent = 'Copié !';
-    copyBtn.appendChild(span);
-    setTimeout(() => { span.textContent = 'Copier'; }, 1500);
-  } catch (e) {
-    log('Erreur copie', 'error');
+        // Go to complete screen after a short delay
+        setTimeout(() => {
+          goToScreen('complete');
+        }, 1000);
+      }
+      updateAnalyzeScreen();
+      updateSplashScreen();
+      break;
   }
 }
 
-// ========== NAVIGATION ==========
-function openReport() {
-  // Open report directly instead of going through background.js
-  chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+function handleAnalysisProgress(data) {
+  const { stage, progress, message } = data;
+
+  document.getElementById('analyzingStage').textContent = message;
+  document.getElementById('analyzeProgressBar').style.width = progress + '%';
+
+  // Update agent states
+  switch (stage) {
+    case 'extracting':
+      setAgentState('extractor', 'active');
+      break;
+    case 'statistics':
+      setAgentState('extractor', 'done');
+      setAgentState('statistician', 'active');
+      break;
+    case 'architecting':
+      setAgentState('statistician', 'done');
+      setAgentState('architect', 'active');
+      break;
+    case 'chartering':
+      setAgentState('architect', 'done');
+      setAgentState('charterer', 'active');
+      break;
+  }
 }
 
+function setAgentState(agentId, state) {
+  const agent = document.getElementById('agent-' + agentId);
+  if (!agent) return;
+
+  agent.classList.remove('active', 'done');
+  if (state) {
+    agent.classList.add(state);
+  }
+}
+
+// ========== ACTIONS ==========
 function openSettings() {
   chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
 }
 
-// ========== CONSOLE ==========
-function log(message, level = 'info') {
-  const el = document.createElement('div');
-  el.className = 'console-log ' + level;
-  el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
-  consoleLogs.appendChild(el);
-  consoleLogs.scrollTop = consoleLogs.scrollHeight;
+function openReport() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
 }
 
-function toggleConsole() {
-  consoleSection.classList.toggle('open');
-  consoleContent.classList.toggle('hidden');
+function restart() {
+  goToScreen('splash');
 }
 
-// ========== MESSAGING ==========
-function sendMessage(tabId, message) {
+async function exportJson() {
+  if (!analysisResults) return;
+
+  const data = {
+    exportDate: new Date().toISOString(),
+    persona: analysisResults.persona,
+    statistics: analysisResults.statistics,
+    memoriesCount: memories.length
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `persona-eeat-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ========== HELPERS ==========
+function sendTabMessage(tabId, message) {
   return new Promise(resolve => {
     chrome.tabs.sendMessage(tabId, message, response => {
       if (chrome.runtime.lastError) {
@@ -330,64 +396,3 @@ function sendMessage(tabId, message) {
     });
   });
 }
-
-// ========== MESSAGE LISTENER ==========
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  switch (request.action) {
-    case 'log':
-      log(request.message, request.level);
-      break;
-
-    case 'progress':
-      progressText.textContent = request.count + ' souvenirs';
-      const pct = Math.min(request.count / 50 * 100, 95);
-      progressFill.style.width = pct + '%';
-      setStatus('loading', 'Extraction: ' + request.count + ' souvenirs...');
-      break;
-
-    case 'extractionComplete':
-      const result = request.result;
-
-      if (result.success && result.memories.length > 0) {
-        extractedMemories = result.memories;
-
-        // Save to storage
-        chrome.runtime.sendMessage({
-          action: 'saveMemories',
-          memories: extractedMemories
-        });
-
-        displayResults();
-        setStatus('success', result.memories.length + ' souvenirs extraits');
-        log('Terminé: ' + result.memories.length + ' souvenirs', 'success');
-        progressFill.style.width = '100%';
-      } else {
-        setStatus('error', result.error || 'Aucun souvenir trouvé');
-        log('Erreur: ' + (result.error || 'Aucun souvenir'), 'error');
-      }
-
-      resetUI();
-      break;
-
-    case 'statusUpdate':
-      setStatus(request.type, request.message);
-      break;
-
-    case 'analysisProgress':
-      analysisStage.textContent = request.message;
-      analysisProgressFill.style.width = request.progress + '%';
-      log(request.message, 'info');
-      break;
-
-    case 'analysisComplete':
-      if (request.results.success) {
-        log('Analyse terminée!', 'success');
-        reportBtn.disabled = false;
-        setStatus('success', 'Analyse terminée - Voir le rapport');
-      } else {
-        log('Erreur analyse: ' + request.results.error, 'error');
-      }
-      resetAnalysisUI();
-      break;
-  }
-});
