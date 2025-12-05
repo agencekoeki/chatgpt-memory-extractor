@@ -568,6 +568,145 @@
       transition: all 0.3s ease;
     }
 
+    /* ===== SHARE BUTTON ===== */
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: transparent;
+      border: 2px solid var(--border);
+      border-radius: 30px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: all 0.3s ease;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1.5s forwards;
+    }
+
+    .share-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent-light);
+      background: rgba(139, 92, 246, 0.1);
+    }
+
+    /* ===== SHARE MODAL ===== */
+    .share-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .share-modal.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .share-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .share-modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .share-modal-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .share-card-preview {
+      background: var(--bg-primary);
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 24px;
+    }
+
+    .share-card-preview canvas {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .share-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .share-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s ease;
+    }
+
+    .share-action-btn.primary {
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: white;
+    }
+
+    .share-action-btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px var(--accent-glow);
+    }
+
+    .share-action-btn.secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .share-action-btn.secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent-light);
+    }
+
+    .share-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 8px;
+      line-height: 1;
+    }
+
+    .share-close:hover {
+      color: var(--text-primary);
+    }
+
     .privacy-mini.public { color: #4ade80; }
     .privacy-mini.semi-prive { color: #facc15; }
     .privacy-mini.prive { color: #fb923c; }
@@ -1232,6 +1371,58 @@
       <p class="landing-disclaimer">
         Analyse basee sur tes conversations avec ChatGPT
       </p>
+
+      <button class="share-btn" id="shareBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="5" r="3"/>
+          <circle cx="6" cy="12" r="3"/>
+          <circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        Partager mon profil
+      </button>
+    </div>
+  </div>
+
+  <!-- SHARE MODAL -->
+  <div class="share-modal" id="shareModal">
+    <button class="share-close" id="shareClose">&times;</button>
+    <div class="share-modal-content">
+      <h3 class="share-modal-title">Partager ton profil IA</h3>
+      <p class="share-modal-subtitle">Montre a tes amis ce que ChatGPT sait de toi !</p>
+
+      <div class="share-card-preview">
+        <canvas id="shareCanvas" width="600" height="400"></canvas>
+      </div>
+
+      <div class="share-actions">
+        <button class="share-action-btn primary" id="downloadCard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Telecharger
+        </button>
+        <button class="share-action-btn secondary" id="copyCard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copier l'image
+        </button>
+        <button class="share-action-btn secondary" id="shareNative">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Partager...
+        </button>
+      </div>
     </div>
   </div>
 

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupExport();
   setupLanding();
+  setupShare();
   await loadData();
   listenForUpdates();
 });
@@ -253,6 +254,251 @@ function hideLanding() {
   if (landing) {
     landing.classList.add('hidden');
     triggerLightTrace();
+  }
+}
+
+// ========== SHARE FUNCTIONALITY ==========
+let shareData = {};
+
+function setupShare() {
+  const shareBtn = document.getElementById('shareBtn');
+  const shareModal = document.getElementById('shareModal');
+  const shareClose = document.getElementById('shareClose');
+  const downloadCard = document.getElementById('downloadCard');
+  const copyCard = document.getElementById('copyCard');
+  const shareNative = document.getElementById('shareNative');
+
+  if (shareBtn) {
+    shareBtn.addEventListener('click', () => {
+      generateShareCard();
+      shareModal.classList.add('active');
+    });
+  }
+
+  if (shareClose) {
+    shareClose.addEventListener('click', () => {
+      shareModal.classList.remove('active');
+    });
+  }
+
+  if (shareModal) {
+    shareModal.addEventListener('click', (e) => {
+      if (e.target === shareModal) {
+        shareModal.classList.remove('active');
+      }
+    });
+  }
+
+  if (downloadCard) {
+    downloadCard.addEventListener('click', downloadShareCard);
+  }
+
+  if (copyCard) {
+    copyCard.addEventListener('click', copyShareCard);
+  }
+
+  if (shareNative) {
+    shareNative.addEventListener('click', nativeShare);
+  }
+}
+
+function generateShareCard() {
+  const canvas = document.getElementById('shareCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const width = 600;
+  const height = 400;
+
+  // Get data
+  const name = document.getElementById('landingName')?.textContent || 'Visiteur';
+  const archetype = document.getElementById('archetypeBadge')?.textContent || 'PROFIL UNIQUE';
+  const exposure = document.getElementById('exposureValue')?.textContent || '0%';
+  const memoriesCount = document.getElementById('landingCount')?.textContent || '0';
+  const publicCount = document.getElementById('landingPublic')?.textContent || '0';
+  const privateCount = document.getElementById('landingPrivate')?.textContent || '0';
+
+  // Store for sharing
+  shareData = { name, archetype, exposure, memoriesCount };
+
+  // Background gradient
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#0a0a12');
+  gradient.addColorStop(1, '#12121f');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Glow effect
+  const glowGradient = ctx.createRadialGradient(300, 150, 0, 300, 150, 250);
+  glowGradient.addColorStop(0, 'rgba(167, 139, 250, 0.3)');
+  glowGradient.addColorStop(1, 'transparent');
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Header text
+  ctx.fillStyle = '#a1a1aa';
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('CE QUE CHATGPT SAIT DE MOI', width / 2, 40);
+
+  // Name
+  ctx.fillStyle = '#f4f4f5';
+  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(name, width / 2, 90);
+
+  // Archetype badge
+  const archetypeY = 130;
+  const archetypeWidth = ctx.measureText(archetype).width + 40;
+  const archetypeX = (width - archetypeWidth) / 2;
+
+  // Badge background
+  ctx.fillStyle = 'rgba(139, 92, 246, 0.2)';
+  ctx.beginPath();
+  ctx.roundRect(archetypeX, archetypeY - 20, archetypeWidth, 36, 18);
+  ctx.fill();
+
+  // Badge border
+  ctx.strokeStyle = '#a78bfa';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Badge text
+  ctx.fillStyle = '#c4b5fd';
+  ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(archetype, width / 2, archetypeY);
+
+  // Exposure meter
+  const meterY = 190;
+  const meterWidth = 300;
+  const meterX = (width - meterWidth) / 2;
+
+  ctx.fillStyle = '#a1a1aa';
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Niveau d\'exposition', meterX, meterY);
+
+  ctx.textAlign = 'right';
+  const exposureNum = parseInt(exposure) || 0;
+  let exposureColor = '#4ade80';
+  if (exposureNum >= 70) exposureColor = '#f87171';
+  else if (exposureNum >= 50) exposureColor = '#fb923c';
+  else if (exposureNum >= 30) exposureColor = '#fbbf24';
+
+  ctx.fillStyle = exposureColor;
+  ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(exposure, meterX + meterWidth, meterY);
+
+  // Meter track
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.beginPath();
+  ctx.roundRect(meterX, meterY + 10, meterWidth, 10, 5);
+  ctx.fill();
+
+  // Meter fill
+  const fillGradient = ctx.createLinearGradient(meterX, 0, meterX + meterWidth, 0);
+  if (exposureNum >= 70) {
+    fillGradient.addColorStop(0, '#ef4444');
+    fillGradient.addColorStop(1, '#f87171');
+  } else if (exposureNum >= 50) {
+    fillGradient.addColorStop(0, '#f97316');
+    fillGradient.addColorStop(1, '#fb923c');
+  } else if (exposureNum >= 30) {
+    fillGradient.addColorStop(0, '#eab308');
+    fillGradient.addColorStop(1, '#fbbf24');
+  } else {
+    fillGradient.addColorStop(0, '#22c55e');
+    fillGradient.addColorStop(1, '#4ade80');
+  }
+  ctx.fillStyle = fillGradient;
+  ctx.beginPath();
+  ctx.roundRect(meterX, meterY + 10, meterWidth * (exposureNum / 100), 10, 5);
+  ctx.fill();
+
+  // Stats
+  const statsY = 270;
+  const stats = [
+    { value: memoriesCount, label: 'Souvenirs' },
+    { value: publicCount, label: 'Publics' },
+    { value: privateCount, label: 'Sensibles' }
+  ];
+
+  const statWidth = 150;
+  const statStartX = (width - (stats.length * statWidth)) / 2;
+
+  stats.forEach((stat, i) => {
+    const x = statStartX + (i * statWidth) + statWidth / 2;
+
+    ctx.fillStyle = '#c4b5fd';
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(stat.value, x, statsY);
+
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(stat.label, x, statsY + 20);
+  });
+
+  // Footer / branding
+  ctx.fillStyle = '#52525b';
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ChatGPT Memory Extractor', width / 2, height - 20);
+}
+
+async function downloadShareCard() {
+  const canvas = document.getElementById('shareCanvas');
+  if (!canvas) return;
+
+  const link = document.createElement('a');
+  link.download = `profil-ia-${shareData.name || 'user'}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function copyShareCard() {
+  const canvas = document.getElementById('shareCanvas');
+  if (!canvas) return;
+
+  try {
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob })
+    ]);
+
+    // Feedback
+    const btn = document.getElementById('copyCard');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copie !';
+    setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+  } catch (e) {
+    console.error('Copy failed:', e);
+    alert('Copie impossible. Telecharge l\'image a la place !');
+  }
+}
+
+async function nativeShare() {
+  const canvas = document.getElementById('shareCanvas');
+  if (!canvas) return;
+
+  try {
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const file = new File([blob], 'profil-ia.png', { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: `Mon profil IA: ${shareData.archetype}`,
+        text: `ChatGPT a memorise ${shareData.memoriesCount} infos sur moi ! Decouvre ton profil :`,
+        files: [file]
+      });
+    } else {
+      // Fallback: copy to clipboard
+      await copyShareCard();
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error('Share failed:', e);
+      downloadShareCard();
+    }
   }
 }
 
