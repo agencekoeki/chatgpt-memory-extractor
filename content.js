@@ -665,93 +665,79 @@ function extractFromTable(container) {
 
   log('Analyse structure modale pour extraction...', 'debug');
 
-  // Méthode 1: Cherche les éléments qui ressemblent à des souvenirs
-  // Les souvenirs sont des divs avec du texte substantiel (>50 chars généralement)
-  // et ont souvent une icône de suppression à côté
-
-  // Cherche les conteneurs de souvenirs (souvent des divs avec bordure ou fond)
-  const potentialContainers = container.querySelectorAll(
-    '[class*="border"], [class*="rounded"], [class*="bg-"], [class*="p-"], [class*="py-"], [class*="px-"]'
+  // MÉTHODE 1 (PRINCIPALE): Structure exacte de ChatGPT (décembre 2024)
+  // Les souvenirs sont dans: table > tr > td > div > div.py-2.whitespace-pre-wrap
+  // Sélecteur: .py-2.whitespace-pre-wrap ou équivalent
+  const memoryDivs = container.querySelectorAll(
+    '.whitespace-pre-wrap, [class*="whitespace-pre-wrap"], .py-2[class*="whitespace"]'
   );
+  log(`  Méthode 1: ${memoryDivs.length} divs whitespace-pre-wrap`, 'debug');
 
-  log(`  ${potentialContainers.length} conteneurs potentiels`, 'debug');
-
-  // Filtre pour garder ceux qui ont du texte substantiel
-  for (const div of potentialContainers) {
+  for (const div of memoryDivs) {
     const text = div.textContent?.trim();
+    // Un souvenir doit avoir du contenu (min 20 chars)
+    if (text && text.length >= 20 && !isSystemText(text) && !seenTexts.has(text)) {
+      seenTexts.add(text);
+      memories.push({ text, timestamp: new Date().toISOString() });
+      log(`  + Mémoire: "${text.substring(0, 60)}..."`, 'debug');
+    }
+  }
 
-    // Un souvenir typique fait plus de 50 caractères
-    if (text && text.length >= 50 && text.length < 2000 && !isSystemText(text)) {
-      // Vérifie que ce n'est pas un conteneur parent (qui contiendrait plusieurs souvenirs)
-      const childDivs = div.querySelectorAll('div');
-      const hasDeleteButton = div.querySelector('button, [role="button"]');
+  // MÉTHODE 2: Cherche dans les lignes de table si méthode 1 n'a rien trouvé
+  if (memories.length === 0) {
+    log('  Méthode 2: recherche dans table rows...', 'debug');
+    const tableRows = container.querySelectorAll('tr');
 
-      // Si ce div a peu d'enfants directs et/ou un bouton supprimer, c'est probablement un souvenir
-      if (childDivs.length < 10 || hasDeleteButton) {
-        // Évite les doublons et le texte parent qui contient les enfants
-        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
+    for (const row of tableRows) {
+      const firstCell = row.querySelector('td');
+      if (!firstCell) continue;
+
+      // Le texte du souvenir est dans un div à l'intérieur du td
+      const textDiv = firstCell.querySelector('[class*="whitespace"]') ||
+                      firstCell.querySelector('[class*="py-2"]') ||
+                      firstCell.querySelector('div > div');
+
+      if (textDiv) {
+        const text = textDiv.textContent?.trim();
+        if (text && text.length >= 20 && !isSystemText(text) && !seenTexts.has(text)) {
           seenTexts.add(text);
-          memories.push({
-            text: text,
-            timestamp: new Date().toISOString()
-          });
-          log(`  + Souvenir trouvé (${text.length} chars): "${text.substring(0, 50)}..."`, 'debug');
+          memories.push({ text, timestamp: new Date().toISOString() });
+          log(`  + Mémoire (table): "${text.substring(0, 60)}..."`, 'debug');
         }
       }
     }
   }
 
-  // Méthode 2: Si peu de résultats, cherche des paragraphes/spans avec du texte long
-  if (memories.length < 3) {
-    log('  Méthode 2: recherche paragraphes...', 'debug');
+  // MÉTHODE 3: Cherche les divs dans les cellules avec classe border-token
+  if (memories.length === 0) {
+    log('  Méthode 3: recherche dans cellules bordure...', 'debug');
+    const borderCells = container.querySelectorAll('[class*="border-token"], [class*="border-b"]');
 
-    const textElements = container.querySelectorAll('p, span, [class*="whitespace"]');
-    for (const el of textElements) {
-      const text = el.textContent?.trim();
-      if (text && text.length >= 50 && text.length < 2000 && !isSystemText(text)) {
-        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
+    for (const cell of borderCells) {
+      const innerDiv = cell.querySelector('div div') || cell.querySelector('div');
+      if (innerDiv) {
+        const text = innerDiv.textContent?.trim();
+        if (text && text.length >= 30 && text.length < 2000 && !isSystemText(text) && !seenTexts.has(text)) {
           seenTexts.add(text);
-          memories.push({
-            text: text,
-            timestamp: new Date().toISOString()
-          });
-          log(`  + Souvenir trouvé via p/span: "${text.substring(0, 50)}..."`, 'debug');
+          memories.push({ text, timestamp: new Date().toISOString() });
+          log(`  + Mémoire (border): "${text.substring(0, 60)}..."`, 'debug');
         }
       }
     }
   }
 
-  // Méthode 3: Dernière chance - tous les divs avec texte > 80 chars
-  if (memories.length < 3) {
-    log('  Méthode 3: tous les divs avec texte long...', 'debug');
-
-    const allDivs = container.querySelectorAll('div');
-    for (const div of allDivs) {
-      // Texte direct de ce div (pas des enfants)
-      const directText = Array.from(div.childNodes)
-        .filter(n => n.nodeType === Node.TEXT_NODE)
-        .map(n => n.textContent.trim())
-        .join(' ')
-        .trim();
-
-      // Ou le textContent complet si pas d'enfants div
-      const text = directText.length > 50 ? directText : (div.children.length === 0 ? div.textContent?.trim() : '');
-
-      if (text && text.length >= 80 && text.length < 2000 && !isSystemText(text)) {
-        if (!seenTexts.has(text) && !Array.from(seenTexts).some(seen => text.includes(seen) || seen.includes(text))) {
-          seenTexts.add(text);
-          memories.push({
-            text: text,
-            timestamp: new Date().toISOString()
-          });
-          log(`  + Souvenir trouvé via div: "${text.substring(0, 50)}..."`, 'debug');
-        }
+  // Nettoyage: supprimer les doublons partiels (un texte contenu dans un autre)
+  const cleaned = memories.filter((mem, idx) => {
+    for (let i = 0; i < memories.length; i++) {
+      if (i !== idx && memories[i].text.includes(mem.text) && memories[i].text.length > mem.text.length) {
+        return false; // Ce texte est un sous-ensemble d'un autre, on le supprime
       }
     }
-  }
+    return true;
+  });
 
-  log(`  TOTAL: ${memories.length} souvenirs extraits`, memories.length > 0 ? 'success' : 'warning');
-  return memories;
+  log(`  TOTAL: ${cleaned.length} mémoires (après nettoyage)`, cleaned.length > 0 ? 'success' : 'warning');
+  return cleaned;
 }
 
 function findScrollContainer(modal) {
