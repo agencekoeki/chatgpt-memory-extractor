@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Memory Extractor",
-  "version": "3.2.0",
-  "description": "Extract all your ChatGPT memories with one click",
+  "name": "ChatGPT Memory Extractor & Analyzer",
+  "version": "4.0.0",
+  "description": "Extract and analyze your ChatGPT memories with AI-powered insights",
   "permissions": [
     "activeTab",
     "storage",
@@ -11,8 +11,15 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://*.chatgpt.com/*"
+    "https://*.chatgpt.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -33,5 +40,11 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["report.html", "settings.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

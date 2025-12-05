@@ -1,8 +1,10 @@
-// ChatGPT Memory Extractor - Popup v3.1
-// Flow simplifié : 1 clic = extraction automatique
+// ChatGPT Memory Extractor - Popup v4.0
+// With AI Analysis Integration
 
 let extractedMemories = [];
 let isExtracting = false;
+let isAnalyzing = false;
+let hasApiKeys = false;
 
 // DOM Elements
 const $ = id => document.getElementById(id);
@@ -18,6 +20,14 @@ const resultsCount = $('resultsCount');
 const resultsPreview = $('resultsPreview');
 const saveBtn = $('saveBtn');
 const copyBtn = $('copyBtn');
+const analyzeBtn = $('analyzeBtn');
+const analyzeBtnText = $('analyzeBtnText');
+const apiBadge = $('apiBadge');
+const analysisProgress = $('analysisProgress');
+const analysisStage = $('analysisStage');
+const analysisProgressFill = $('analysisProgressFill');
+const reportBtn = $('reportBtn');
+const settingsBtn = $('settingsBtn');
 const consoleSection = document.querySelector('.console-section');
 const consoleToggle = $('consoleToggle');
 const consoleContent = $('consoleContent');
@@ -26,14 +36,56 @@ const consoleLogs = $('consoleLogs');
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', async () => {
   setupListeners();
+  await checkApiKeys();
   await checkPage();
+  await loadStoredMemories();
 });
 
 function setupListeners() {
   extractBtn.addEventListener('click', startExtraction);
   saveBtn.addEventListener('click', saveToFile);
   copyBtn.addEventListener('click', copyToClipboard);
+  analyzeBtn.addEventListener('click', startAnalysis);
+  reportBtn.addEventListener('click', openReport);
+  settingsBtn.addEventListener('click', openSettings);
   consoleToggle.addEventListener('click', toggleConsole);
+}
+
+// ========== CHECK API KEYS ==========
+async function checkApiKeys() {
+  try {
+    const keys = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
+    hasApiKeys = keys && (keys.anthropic || keys.openai || keys.google);
+
+    if (hasApiKeys) {
+      apiBadge.textContent = 'Prêt';
+      apiBadge.classList.remove('warning');
+    } else {
+      apiBadge.textContent = 'Configurer';
+      apiBadge.classList.add('warning');
+    }
+  } catch (e) {
+    console.error('Error checking API keys:', e);
+  }
+}
+
+// ========== LOAD STORED MEMORIES ==========
+async function loadStoredMemories() {
+  try {
+    const memories = await chrome.runtime.sendMessage({ action: 'getMemories' });
+    if (memories && memories.length > 0) {
+      extractedMemories = memories;
+      displayResults();
+
+      // Check if analysis exists
+      const analysis = await chrome.runtime.sendMessage({ action: 'getAnalysisResults' });
+      if (analysis) {
+        reportBtn.disabled = false;
+      }
+    }
+  } catch (e) {
+    console.error('Error loading stored memories:', e);
+  }
 }
 
 // ========== CHECK PAGE ==========
@@ -136,6 +188,58 @@ function displayResults() {
   }
 
   resultsPreview.textContent = preview;
+
+  // Enable analyze button if we have memories
+  if (extractedMemories.length > 0) {
+    analyzeBtn.disabled = false;
+  }
+}
+
+// ========== ANALYSIS ==========
+async function startAnalysis() {
+  if (isAnalyzing) return;
+
+  if (!hasApiKeys) {
+    openSettings();
+    return;
+  }
+
+  if (extractedMemories.length === 0) {
+    log('Aucun souvenir à analyser', 'warning');
+    return;
+  }
+
+  try {
+    isAnalyzing = true;
+    analyzeBtn.disabled = true;
+    analyzeBtnText.textContent = 'Analyse en cours...';
+    analysisProgress.classList.remove('hidden');
+
+    log('Démarrage de l\'analyse IA...', 'info');
+
+    // Start analysis via background script
+    const response = await chrome.runtime.sendMessage({
+      action: 'startAnalysis',
+      memories: extractedMemories
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // Analysis started, wait for completion via message listener
+
+  } catch (error) {
+    log('Erreur analyse: ' + error.message, 'error');
+    resetAnalysisUI();
+  }
+}
+
+function resetAnalysisUI() {
+  isAnalyzing = false;
+  analyzeBtn.disabled = false;
+  analyzeBtnText.textContent = 'Analyser avec l\'IA';
+  analysisProgress.classList.add('hidden');
 }
 
 // ========== SAVE ==========
@@ -188,6 +292,15 @@ async function copyToClipboard() {
   }
 }
 
+// ========== NAVIGATION ==========
+function openReport() {
+  chrome.runtime.sendMessage({ action: 'openReport' });
+}
+
+function openSettings() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+}
+
 // ========== CONSOLE ==========
 function log(message, level = 'info') {
   const el = document.createElement('div');
@@ -234,6 +347,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       if (result.success && result.memories.length > 0) {
         extractedMemories = result.memories;
+
+        // Save to storage
+        chrome.runtime.sendMessage({
+          action: 'saveMemories',
+          memories: extractedMemories
+        });
+
         displayResults();
         setStatus('success', result.memories.length + ' souvenirs extraits');
         log('Terminé: ' + result.memories.length + ' souvenirs', 'success');
@@ -248,6 +368,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'statusUpdate':
       setStatus(request.type, request.message);
+      break;
+
+    case 'analysisProgress':
+      analysisStage.textContent = request.message;
+      analysisProgressFill.style.width = request.progress + '%';
+      log(request.message, 'info');
+      break;
+
+    case 'analysisComplete':
+      if (request.results.success) {
+        log('Analyse terminée!', 'success');
+        reportBtn.disabled = false;
+        setStatus('success', 'Analyse terminée - Voir le rapport');
+      } else {
+        log('Erreur analyse: ' + request.results.error, 'error');
+      }
+      resetAnalysisUI();
       break;
   }
 });
