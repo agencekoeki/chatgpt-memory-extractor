@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Memory Extractor 🧠",
-  "version": "3.0.0",
-  "description": "Extrayez TOUS vos souvenirs ChatGPT avec visualisation en temps réel",
+  "name": "ChatGPT Memory Extractor",
+  "version": "3.2.0",
+  "description": "Extract all your ChatGPT memories with one click",
   "permissions": [
     "activeTab",
     "storage",

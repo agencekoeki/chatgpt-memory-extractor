@@ -1,520 +1,401 @@
-// ChatGPT Memory Extractor - Content Script v3
-// Focus : EXTRACTION COMPLETE avec visualisation
+// ChatGPT Memory Extractor - Content Script v3.2
+// Adapté à la vraie structure DOM de ChatGPT
 
-let extractionState = {
-  mode: 'waiting',
-  memories: [],
-  totalFound: 0,
-  isExtracting: false
-};
+let isExtracting = false;
 
-// ========== LOGGING SIMPLE ==========
-function log(message, data = null, level = 'info') {
+// ========== LOGGING ==========
+function log(message, level = 'info') {
   const styles = {
-    info: 'color: #0066cc;',
-    success: 'color: #00aa00; font-weight: bold;',
-    warning: 'color: #ff9900;',
-    error: 'color: #cc0000; font-weight: bold;'
+    info: 'color: #6366f1;',
+    success: 'color: #22c55e; font-weight: bold;',
+    warning: 'color: #f59e0b;',
+    error: 'color: #ef4444; font-weight: bold;'
   };
-  
-  console.log(`%c[Memory Extractor] ${message}`, styles[level], data || '');
-  
-  // Envoyer à la popup pour affichage
-  chrome.runtime.sendMessage({
-    action: 'log',
-    message,
-    data,
-    level
-  }).catch(() => {});
+  console.log(`%c[MemoryExtractor] ${message}`, styles[level]);
+  chrome.runtime.sendMessage({ action: 'log', message, level }).catch(() => {});
 }
 
-// ========== DETECTION DES ELEMENTS ==========
-function detectPageState() {
-  const state = {
-    isPersonalization: window.location.href.includes('#settings/Personalization'),
-    hasMemorySection: false,
-    hasManageButton: false,
-    hasModal: false,
-    manageButton: null,
-    modal: null
-  };
-  
-  // Chercher la section mémoire (92% utilisé)
-  const memoryIndicator = Array.from(document.querySelectorAll('*')).find(el => 
-    el.textContent?.includes('% utilisé')
-  );
-  
-  if (memoryIndicator) {
-    state.hasMemorySection = true;
-    log('✓ Section Mémoire détectée', null, 'success');
-    
-    // Chercher le bouton Gérer proche
-    let parent = memoryIndicator.parentElement;
-    for (let i = 0; i < 5 && parent; i++) {
-      const buttons = parent.querySelectorAll('button, [role="button"]');
-      for (const btn of buttons) {
-        const text = btn.textContent?.trim().toLowerCase();
-        if (text === 'gérer' || text === 'manage') {
-          state.hasManageButton = true;
-          state.manageButton = btn;
-          highlightElement(btn, '#00ff00');
-          log('✓ Bouton Gérer trouvé et surligné en vert', null, 'success');
-          break;
-        }
-      }
-      if (state.hasManageButton) break;
-      parent = parent.parentElement;
-    }
-  }
-  
-  // Chercher une modale ouverte
-  const modal = document.querySelector('[role="dialog"]') || 
-                document.querySelector('[aria-modal="true"]');
-  if (modal && modal.offsetHeight > 0) {
-    state.hasModal = true;
-    state.modal = modal;
-    log('✓ Modale ouverte détectée', null, 'success');
-  }
-  
-  return state;
+function updateStatus(type, message) {
+  chrome.runtime.sendMessage({ action: 'statusUpdate', type, message }).catch(() => {});
 }
 
-// ========== HIGHLIGHT VISUEL ==========
-function highlightElement(element, color = '#ff0000', temporary = false) {
-  if (!element) return;
-  
-  const originalStyle = element.style.cssText;
-  element.style.outline = `3px solid ${color}`;
-  element.style.outlineOffset = '2px';
-  element.style.transition = 'outline 0.3s';
-  
-  if (temporary) {
-    setTimeout(() => {
-      element.style.cssText = originalStyle;
-    }, 3000);
-  }
+function reportProgress(count) {
+  chrome.runtime.sendMessage({ action: 'progress', count }).catch(() => {});
 }
 
-// ========== EXTRACTION PRINCIPALE ==========
-async function extractAllMemories() {
-  log('🚀 Début de l\'extraction complète...', null, 'info');
-  extractionState.isExtracting = true;
-  extractionState.memories = [];
-  
-  const state = detectPageState();
-  
-  // Étape 1: Vérifier qu'on est au bon endroit
-  if (!state.isPersonalization) {
-    log('❌ Naviguez vers Settings > Personalization d\'abord', null, 'error');
-    return { success: false, error: 'wrong_page', memories: [] };
-  }
-  
-  // Étape 2: Chercher et cliquer sur Gérer
-  if (!state.hasModal || !isCorrectModal(state.modal)) {
-    if (state.manageButton) {
-      log('🔍 Clic sur le bouton Gérer...', null, 'info');
-      state.manageButton.click();
-      
-      // Attendre l'ouverture de la BONNE modale
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Chercher spécifiquement la modale "Souvenirs enregistrés"
-      let correctModal = null;
-      const allModals = document.querySelectorAll('[role="dialog"], [aria-modal="true"]');
-      
-      for (const modal of allModals) {
-        // La modale des souvenirs contient "Souvenirs enregistrés" et "Tout supprimer"
-        if (modal.textContent.includes('Souvenirs enregistrés') || 
-            (modal.textContent.includes('% utilisé') && modal.textContent.includes('Tout supprimer'))) {
-          correctModal = modal;
-          log('✓ Modale "Souvenirs enregistrés" trouvée!', null, 'success');
-          break;
-        }
-      }
-      
-      if (!correctModal) {
-        log('❌ La modale "Souvenirs enregistrés" ne s\'est pas ouverte', null, 'error');
-        return { success: false, error: 'modal_failed', memories: [] };
-      }
-      
-      state.modal = correctModal;
-    } else {
-      log('❌ Bouton "Gérer" non trouvé', null, 'error');
-      return { success: false, error: 'no_manage_button', memories: [] };
-    }
-  }
-  
-  // Vérifier qu'on a la bonne modale
-  if (!isCorrectModal(state.modal)) {
-    log('❌ Mauvaise modale détectée', null, 'error');
-    return { success: false, error: 'wrong_modal', memories: [] };
-  }
-  
-  // Étape 3: Extraire TOUS les souvenirs avec scroll
-  const memories = await extractMemoriesFromModal(state.modal);
-  
-  extractionState.memories = memories;
-  extractionState.totalFound = memories.length;
-  extractionState.isExtracting = false;
-  
-  if (memories.length > 0) {
-    log(`✅ Extraction terminée: ${memories.length} VRAIS souvenirs !`, null, 'success');
-    return { success: true, memories };
-  } else {
-    log('⚠️ Aucun souvenir trouvé', null, 'warning');
-    return { success: false, error: 'no_memories', memories: [] };
-  }
-}
+// ========== UTILITIES ==========
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// ========== VERIFIER SI C'EST LA BONNE MODALE ==========
-function isCorrectModal(modal) {
-  if (!modal) return false;
-  
-  const modalText = modal.textContent;
-  
-  // La bonne modale contient :
-  // - "Souvenirs enregistrés" ou "Memory"
-  // - "% utilisé"
-  // - "Tout supprimer" ou "Delete all"
-  // Et NE contient PAS :
-  // - "Personnalisation"
-  // - "Notifications"
-  // - "Applications"
-  
-  const hasMemoryIndicators = 
-    (modalText.includes('Souvenirs enregistrés') || modalText.includes('Memory')) &&
-    modalText.includes('% utilisé') &&
-    (modalText.includes('Tout supprimer') || modalText.includes('Delete all'));
-  
-  const hasSettingsIndicators = 
-    modalText.includes('Personnalisation') ||
-    modalText.includes('Notifications') ||
-    modalText.includes('Applications');
-  
-  return hasMemoryIndicators && !hasSettingsIndicators;
-}
-
-// ========== ATTENDRE LA MODALE ==========
-async function waitForModal(timeout = 5000) {
-  const startTime = Date.now();
-  
-  while (Date.now() - startTime < timeout) {
-    const modal = document.querySelector('[role="dialog"]');
-    if (modal && modal.offsetHeight > 0) {
-      log('✓ Modale ouverte !', null, 'success');
-      return modal;
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
+async function waitFor(selector, timeout = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const el = document.querySelector(selector);
+    if (el && el.offsetHeight > 0) return el;
+    await wait(200);
   }
-  
   return null;
 }
 
-// ========== EXTRACTION AVEC SCROLL ==========
-async function extractMemoriesFromModal(modal) {
-  log('📜 Extraction avec scroll automatique...', null, 'info');
-  
-  // IMPORTANT: Vérifier qu'on est dans la BONNE modale (Souvenirs enregistrés)
-  const modalTitle = modal.textContent;
-  if (!modalTitle.includes('Souvenirs enregistrés') && !modalTitle.includes('Memory')) {
-    log('⚠️ Ce n\'est pas la modale des souvenirs!', null, 'warning');
-    
-    // Chercher spécifiquement la modale avec "Souvenirs enregistrés"
-    const allModals = document.querySelectorAll('[role="dialog"]');
-    let correctModal = null;
-    
-    for (const m of allModals) {
-      if (m.textContent.includes('Souvenirs enregistrés') || 
-          m.textContent.includes('% utilisé')) {
-        correctModal = m;
-        modal = correctModal;
-        log('✓ Bonne modale trouvée!', null, 'success');
-        break;
+function findByText(texts, selector = '*') {
+  const elements = document.querySelectorAll(selector);
+  for (const el of elements) {
+    const text = el.textContent?.trim().toLowerCase();
+    for (const t of texts) {
+      if (text === t.toLowerCase() || text?.includes(t.toLowerCase())) {
+        return el;
       }
-    }
-    
-    if (!correctModal) {
-      log('❌ Modale "Souvenirs enregistrés" non trouvée', null, 'error');
-      return [];
     }
   }
-  
-  const allMemories = [];
-  const seenTexts = new Set();
-  
-  // Trouver le conteneur scrollable DANS LA MODALE
-  const scrollContainer = findScrollContainer(modal);
-  if (!scrollContainer) {
-    log('⚠️ Pas de conteneur scrollable, extraction simple', null, 'warning');
-    return extractVisibleMemories(modal);
+  return null;
+}
+
+function findButtonByText(texts) {
+  return findByText(texts, 'button, [role="button"], [role="menuitem"]');
+}
+
+// ========== NAVIGATION ==========
+async function navigateToMemories() {
+  log('Navigation vers les paramètres...', 'info');
+  updateStatus('loading', 'Ouverture des paramètres...');
+
+  // Step 1: Click on user menu (bottom left avatar/name)
+  const userMenuBtn = document.querySelector('[data-testid="profile-button"]') ||
+                      document.querySelector('button[aria-label*="enu"]') ||
+                      document.querySelector('nav button:last-child') ||
+                      // Look for the user name button at bottom of sidebar
+                      [...document.querySelectorAll('button')].find(b =>
+                        b.textContent?.includes('@') ||
+                        b.querySelector('img[alt]')
+                      );
+
+  if (userMenuBtn) {
+    log('Menu utilisateur trouvé', 'success');
+    userMenuBtn.click();
+    await wait(500);
   }
-  
-  log('✓ Conteneur scrollable trouvé dans la modale', null, 'success');
-  
-  // Variables pour le scroll
-  let previousCount = 0;
-  let noNewMemoriesCount = 0;
-  const maxIterations = 100;
-  let iteration = 0;
-  
-  // Boucle d'extraction avec scroll
-  while (iteration < maxIterations) {
-    iteration++;
-    
-    // Extraire les souvenirs visibles DANS LA MODALE seulement
-    const visibleMemories = extractVisibleMemories(modal);
-    
-    // Ajouter les nouveaux
-    let newCount = 0;
-    for (const memory of visibleMemories) {
-      // Filtrer les textes qui ne sont PAS des souvenirs
-      if (!seenTexts.has(memory.text) && isRealMemory(memory.text)) {
-        seenTexts.add(memory.text);
-        allMemories.push(memory);
-        newCount++;
-        
-        // Highlight temporaire
-        if (memory.element) {
-          highlightElement(memory.element, '#00ff00', true);
-        }
-      }
-    }
-    
-    // Afficher la progression
-    if (newCount > 0) {
-      log(`📊 Progression: ${allMemories.length} souvenirs extraits (+${newCount})`, null, 'info');
-      
-      chrome.runtime.sendMessage({
-        action: 'extractionProgress',
-        count: allMemories.length,
-        newCount
-      }).catch(() => {});
-    }
-    
-    // Vérifier si on a trouvé de nouveaux souvenirs
-    if (allMemories.length === previousCount) {
-      noNewMemoriesCount++;
-      if (noNewMemoriesCount >= 3) {
-        log('✅ Plus de nouveaux souvenirs, extraction complète', null, 'success');
-        break;
-      }
-    } else {
-      noNewMemoriesCount = 0;
-    }
-    
-    previousCount = allMemories.length;
-    
-    // Scroller pour charger plus
-    const hasMore = await scrollForMore(scrollContainer);
-    if (!hasMore) {
-      log('✅ Fin du scroll atteinte', null, 'success');
+
+  // Step 2: Click on "Paramètres" / "Settings"
+  await wait(300);
+  const settingsBtn = findButtonByText(['paramètres', 'settings']);
+
+  if (settingsBtn) {
+    log('Bouton Paramètres trouvé', 'success');
+    settingsBtn.click();
+    await wait(1000);
+  } else {
+    // Try direct navigation
+    log('Navigation directe vers settings...', 'warning');
+    window.location.hash = '#settings';
+    await wait(1500);
+  }
+
+  // Step 3: Click on "Personnalisation" / "Personalization" tab
+  updateStatus('loading', 'Navigation vers Personnalisation...');
+  await wait(500);
+
+  const personalizationTab = findButtonByText(['personnalisation', 'personalization']);
+
+  if (personalizationTab) {
+    log('Onglet Personnalisation trouvé', 'success');
+    personalizationTab.click();
+    await wait(1000);
+  }
+
+  // Step 4: Scroll to find Memory section and click "Gérer" / "Manage"
+  updateStatus('loading', 'Recherche section Mémoire...');
+
+  // Find the settings content area
+  const settingsContent = document.querySelector('[class*="overflow-y-auto"]') ||
+                          document.querySelector('main') ||
+                          document.body;
+
+  // Scroll to find memory section
+  let found = false;
+  for (let i = 0; i < 15; i++) {
+    // Look for memory indicators: "Remplissage" or "Memory" or "Mémoire"
+    const memorySection = findByText(['remplissage', 'mémoire', 'memory'], 'div, span, h2, h3');
+
+    if (memorySection) {
+      log('Section Mémoire trouvée', 'success');
+      memorySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await wait(500);
+      found = true;
       break;
     }
-    
-    // Attendre le chargement
-    await new Promise(resolve => setTimeout(resolve, 500));
+
+    settingsContent.scrollTop += 300;
+    await wait(300);
   }
-  
-  return allMemories;
+
+  // Step 5: Find and click the manage button (might be "Gérer" or icon button)
+  updateStatus('loading', 'Ouverture des éléments mémorisés...');
+  await wait(500);
+
+  // The manage button might be near "Remplissage" text
+  const manageBtn = findButtonByText(['gérer', 'manage', 'voir', 'view']) ||
+                    // Or look for a button in the memory section area
+                    document.querySelector('[data-testid*="memory"]') ||
+                    document.querySelector('[data-testid*="manage"]');
+
+  if (!manageBtn) {
+    // Try to find any button that could open memory modal
+    const allButtons = [...document.querySelectorAll('button')];
+    const memoryBtn = allButtons.find(b => {
+      const parent = b.closest('div');
+      return parent?.textContent?.includes('Remplissage') ||
+             parent?.textContent?.includes('Mémoire') ||
+             parent?.textContent?.includes('Memory');
+    });
+
+    if (memoryBtn) {
+      log('Bouton mémoire trouvé (via parent)', 'success');
+      memoryBtn.click();
+      await wait(1500);
+      return { success: true };
+    }
+
+    log('Bouton Gérer non trouvé', 'error');
+    return { success: false, error: 'Bouton Gérer non trouvé. Ouvrez manuellement Settings > Personnalisation > Mémoire > Gérer' };
+  }
+
+  log('Bouton Gérer trouvé', 'success');
+  manageBtn.click();
+  await wait(1500);
+
+  return { success: true };
 }
 
-// ========== VERIFIER SI C'EST UN VRAI SOUVENIR ==========
-function isRealMemory(text) {
-  // Filtrer les textes qui NE SONT PAS des souvenirs
-  const notMemoryPatterns = [
-    'Personnalisation',
-    'Personnalité de ChatGPT',
-    'Définissez le style',
-    'Mémoires de référence',
-    'historique des enregistrements',
-    'En savoir plus',
-    'Par défaut',
-    'Mode d\'enregistrement',
-    'Laissez ChatGPT'
-  ];
-  
-  // Si le texte contient un de ces patterns, ce n'est PAS un souvenir
-  for (const pattern of notMemoryPatterns) {
-    if (text.includes(pattern)) {
-      return false;
+// ========== EXTRACTION ==========
+async function extractMemories() {
+  log('Extraction des éléments mémorisés...', 'info');
+  updateStatus('loading', 'Extraction en cours...');
+
+  // Find the modal - "Éléments mémorisés" modal
+  const modal = await waitFor('[role="dialog"]', 5000);
+
+  if (!modal) {
+    return { success: false, error: 'Modale non trouvée', memories: [] };
+  }
+
+  // Verify it's the memories modal
+  const modalText = modal.textContent || '';
+  const isMemoryModal = modalText.includes('mémorisés') ||
+                        modalText.includes('Remplissage') ||
+                        modalText.includes('Memory') ||
+                        modalText.includes('memorized');
+
+  if (!isMemoryModal) {
+    log('Mauvaise modale: ' + modalText.substring(0, 100), 'warning');
+    return { success: false, error: 'Mauvaise modale détectée', memories: [] };
+  }
+
+  log('Modale "Éléments mémorisés" détectée', 'success');
+
+  // The memories are in a TABLE structure
+  // Find the scrollable container and the table
+  const scrollContainer = modal.querySelector('[class*="overflow-y-auto"]') ||
+                          modal.querySelector('table')?.parentElement ||
+                          findScrollContainer(modal);
+
+  const allMemories = [];
+  const seenTexts = new Set();
+  let noNewCount = 0;
+  let iteration = 0;
+  const maxIterations = 100;
+
+  while (iteration < maxIterations && noNewCount < 4) {
+    iteration++;
+
+    // Extract from TABLE rows
+    const memories = extractFromTable(modal);
+
+    let newCount = 0;
+    for (const mem of memories) {
+      if (!seenTexts.has(mem.text)) {
+        seenTexts.add(mem.text);
+        allMemories.push(mem);
+        newCount++;
+      }
+    }
+
+    if (newCount > 0) {
+      noNewCount = 0;
+      reportProgress(allMemories.length);
+      log(`Progression: ${allMemories.length} éléments`, 'info');
+    } else {
+      noNewCount++;
+    }
+
+    // Scroll for more
+    if (scrollContainer) {
+      const before = scrollContainer.scrollTop;
+      scrollContainer.scrollTop += 400;
+      await wait(400);
+
+      if (scrollContainer.scrollTop === before) {
+        await wait(300);
+        if (scrollContainer.scrollTop === before) {
+          log('Fin du scroll', 'info');
+          break;
+        }
+      }
+    } else {
+      break;
     }
   }
-  
-  // Un vrai souvenir contient généralement :
-  // - "souhaite", "préfère", "aime", "travaille", "utilise", etc.
-  // - Ou commence par "L'utilisateur", "Sébastien", un nom, etc.
-  return true;
+
+  return {
+    success: allMemories.length > 0,
+    memories: allMemories,
+    error: allMemories.length === 0 ? 'Aucun élément trouvé' : null
+  };
 }
 
-// ========== TROUVER LE CONTENEUR SCROLLABLE ==========
-function findScrollContainer(modal) {
-  // Chercher un élément avec overflow scroll/auto
-  const elements = modal.querySelectorAll('*');
-  
-  for (const el of elements) {
-    const style = window.getComputedStyle(el);
-    if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && 
-        el.scrollHeight > el.clientHeight) {
-      return el;
-    }
-  }
-  
-  // Fallback: la modale elle-même
-  if (modal.scrollHeight > modal.clientHeight) {
-    return modal;
-  }
-  
-  return null;
-}
-
-// ========== EXTRAIRE LES SOUVENIRS VISIBLES ==========
-function extractVisibleMemories(container) {
+function extractFromTable(container) {
   const memories = [];
-  
-  // Stratégie 1: Chercher les divs qui contiennent les souvenirs
-  // On cherche des patterns comme ceux qu'on voit dans les captures
-  const divs = container.querySelectorAll('div');
-  
-  for (const div of divs) {
-    const text = div.textContent?.trim();
-    
-    // Filtres pour identifier un souvenir
-    if (text && 
-        text.length > 30 && // Au moins 30 caractères
-        text.length < 2000 && // Pas trop long
-        !isSystemText(text) && // Pas un texte système
-        !hasNestedDivs(div)) { // Pas un conteneur parent
-      
-      memories.push({
-        text: text,
-        element: div,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  // Stratégie 2: Si aucun souvenir, chercher par structure spécifique
-  if (memories.length === 0) {
-    const items = container.querySelectorAll('[class*="flex"]');
-    for (const item of items) {
-      const text = item.textContent?.trim();
-      if (text && text.length > 30 && !isSystemText(text)) {
+
+  // Method 1: Look for table rows
+  const tableRows = container.querySelectorAll('tr');
+
+  for (const row of tableRows) {
+    // Get the text cell (first td usually)
+    const textCell = row.querySelector('td');
+    if (!textCell) continue;
+
+    // The actual text is in a div with whitespace-pre-wrap
+    const textDiv = textCell.querySelector('[class*="whitespace-pre-wrap"]') ||
+                    textCell.querySelector('[class*="py-2"]') ||
+                    textCell.querySelector('div');
+
+    if (textDiv) {
+      const text = textDiv.textContent?.trim();
+      if (text && text.length >= 10 && !isSystemText(text)) {
         memories.push({
           text: text,
-          element: item,
           timestamp: new Date().toISOString()
         });
       }
     }
   }
-  
+
+  // Method 2: If no table found, look for div structure
+  if (memories.length === 0) {
+    const divs = container.querySelectorAll('[class*="whitespace-pre-wrap"], [class*="py-2"]');
+
+    for (const div of divs) {
+      const text = div.textContent?.trim();
+      if (text && text.length >= 10 && !isSystemText(text)) {
+        // Check it's not a container
+        if (div.querySelectorAll('div').length < 3) {
+          memories.push({
+            text: text,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    }
+  }
+
   return memories;
 }
 
-// ========== VERIFIER SI C'EST DU TEXTE SYSTEME ==========
-function isSystemText(text) {
-  const systemWords = [
-    '% utilisé', 
-    'Souvenirs enregistrés',
-    'Tout supprimer',
-    'Delete all',
-    'Gérer',
-    'Manage',
-    'Close',
-    'Fermer'
-  ];
-  
-  return systemWords.some(word => text.includes(word));
-}
-
-// ========== VERIFIER SI UN DIV A DES SOUS-DIVS ==========
-function hasNestedDivs(div) {
-  const childDivs = div.querySelectorAll('div');
-  return childDivs.length > 3; // Si plus de 3 sous-divs, c'est probablement un conteneur
-}
-
-// ========== SCROLLER POUR CHARGER PLUS ==========
-async function scrollForMore(container) {
-  const beforeScroll = container.scrollTop;
-  const maxScroll = container.scrollHeight - container.clientHeight;
-  
-  // Si on est déjà en bas
-  if (beforeScroll >= maxScroll - 10) {
-    // Double vérification après une petite attente
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newMaxScroll = container.scrollHeight - container.clientHeight;
-    if (container.scrollTop >= newMaxScroll - 10) {
-      return false; // Vraiment fini
+function findScrollContainer(modal) {
+  const elements = modal.querySelectorAll('*');
+  for (const el of elements) {
+    const style = window.getComputedStyle(el);
+    if ((style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+        el.scrollHeight > el.clientHeight + 10) {
+      return el;
     }
   }
-  
-  // Scroller par étapes plus grandes pour aller plus vite
-  container.scrollTop = Math.min(beforeScroll + 500, maxScroll);
-  
-  // Attendre un peu plus pour le chargement
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Vérifier si on a scrollé
-  return container.scrollTop > beforeScroll;
+  return modal.scrollHeight > modal.clientHeight ? modal : null;
 }
 
-// ========== MESSAGES HANDLER ==========
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-  switch(request.action) {
-    case 'detectState':
-      const state = detectPageState();
-      sendResponse(state);
-      break;
-      
-    case 'startExtraction':
-      if (!extractionState.isExtracting) {
-        // IMPORTANT: Répondre immédiatement pour éviter le timeout
-        sendResponse({ 
-          started: true,
-          message: 'Extraction démarrée'
-        });
-        
-        // Lancer l'extraction en async (sans await)
-        extractAllMemories().then(result => {
-          // Envoyer le résultat final via un nouveau message
-          chrome.runtime.sendMessage({
-            action: 'extractionComplete',
-            result: result
-          }).catch(() => {});
-        });
-        
-      } else {
-        sendResponse({ 
-          success: false, 
-          error: 'already_extracting',
-          message: 'Extraction déjà en cours...'
-        });
-      }
-      break;
-      
-    case 'getStatus':
-      sendResponse({
-        isExtracting: extractionState.isExtracting,
-        totalFound: extractionState.totalFound,
-        memories: extractionState.memories
-      });
-      break;
-      
-    default:
-      sendResponse({ error: 'Unknown action' });
+function isSystemText(text) {
+  const systemPatterns = [
+    'remplissage', 'filling',
+    'éléments mémorisés', 'memorized items', 'saved memories',
+    'supprimer tout', 'delete all', 'clear all',
+    'gérer', 'manage',
+    'fermer', 'close',
+    'personnalisation', 'personalization',
+    'mémoire pleine', 'memory full',
+    'une fois la mémoire pleine',
+    'les réponses pourraient'
+  ];
+
+  const lowerText = text.toLowerCase();
+
+  for (const pattern of systemPatterns) {
+    if (lowerText === pattern) return true;
+    if (text.length < 60 && lowerText.includes(pattern)) return true;
   }
-  
-  return true;
+
+  return false;
+}
+
+// ========== MAIN AUTO EXTRACT ==========
+async function autoExtract() {
+  if (isExtracting) {
+    return { error: true, message: 'Extraction déjà en cours' };
+  }
+
+  isExtracting = true;
+
+  try {
+    // Check if memories modal is already open
+    let modal = document.querySelector('[role="dialog"]');
+    let isMemoryModal = modal && (
+      modal.textContent?.includes('mémorisés') ||
+      modal.textContent?.includes('Remplissage') ||
+      modal.textContent?.includes('Memory')
+    );
+
+    if (!isMemoryModal) {
+      const navResult = await navigateToMemories();
+      if (!navResult.success) {
+        isExtracting = false;
+        return { error: true, message: navResult.error };
+      }
+    }
+
+    // Extract
+    const result = await extractMemories();
+
+    chrome.runtime.sendMessage({
+      action: 'extractionComplete',
+      result
+    }).catch(() => {});
+
+    isExtracting = false;
+    return { started: true };
+
+  } catch (error) {
+    isExtracting = false;
+    log('Erreur: ' + error.message, 'error');
+    return { error: true, message: error.message };
+  }
+}
+
+// ========== MESSAGE HANDLER ==========
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'autoExtract') {
+    sendResponse({ started: true });
+
+    autoExtract().then(result => {
+      if (result.error) {
+        chrome.runtime.sendMessage({
+          action: 'extractionComplete',
+          result: { success: false, error: result.message, memories: [] }
+        }).catch(() => {});
+      }
+    });
+
+    return true;
+  }
+
+  return false;
 });
 
-// ========== INITIALISATION ==========
-log('🧠 Memory Extractor chargé', { url: window.location.href }, 'info');
-
-// Détecter l'état initial
-setTimeout(() => {
-  const state = detectPageState();
-  chrome.runtime.sendMessage({
-    action: 'stateUpdate',
-    state
-  }).catch(() => {});
-}, 1000);
+// ========== INIT ==========
+log('Memory Extractor v3.2 chargé', 'info');
