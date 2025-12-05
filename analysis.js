@@ -93,6 +93,12 @@ TAXONOMIE E-E-A-T:
 - TRUST: ${EEAT_TAXONOMY.trust.join(', ')}
 - VOICE: ${EEAT_TAXONOMY.voice.join(', ')}
 
+NIVEAUX DE CONFIDENTIALITÉ:
+- public: Information partageable publiquement (préférences générales, goûts, hobbies généraux)
+- semi-prive: Information personnelle mais pas sensible (ville, profession, projets)
+- prive: Information personnelle sensible (relations, santé légère, finances générales)
+- tres-prive: Information très sensible (données médicales, secrets, identifiants, famille proche)
+
 SOUVENIR À ANALYSER:
 "${memory.text}"
 
@@ -102,6 +108,7 @@ EXTRAIS en JSON:
   "tags": ["tag1", "tag2"],
   "extracted_fact": "Le fait brut extrait",
   "persona_value": "Comment utiliser ça pour le persona",
+  "privacy_level": "public|semi-prive|prive|tres-prive",
   "confidence": 0.8
 }
 
@@ -157,6 +164,7 @@ JSON uniquement, pas de markdown.`;
     const stats = {
       total: extractions.length,
       byCategory: { expertise: [], experience: [], authority: [], trust: [], voice: [] },
+      byPrivacy: { 'public': 0, 'semi-prive': 0, 'prive': 0, 'tres-prive': 0 },
       tagFrequency: {},
       expertiseDomains: [],
       experienceMarkers: [],
@@ -172,6 +180,12 @@ JSON uniquement, pas de markdown.`;
           stats.byCategory[cat].push(ext);
         }
       });
+
+      // Count privacy levels
+      const privacy = ext.privacy_level || 'public';
+      if (stats.byPrivacy[privacy] !== undefined) {
+        stats.byPrivacy[privacy]++;
+      }
 
       (ext.tags || []).forEach(tag => {
         stats.tagFrequency[tag] = (stats.tagFrequency[tag] || 0) + 1;
@@ -217,6 +231,11 @@ JSON uniquement, pas de markdown.`;
     // Category distribution
     stats.categoryDistribution = Object.entries(stats.byCategory)
       .map(([cat, items]) => ({ category: cat, count: items.length }))
+      .sort((a, b) => b.count - a.count);
+
+    // Privacy distribution
+    stats.privacyDistribution = Object.entries(stats.byPrivacy)
+      .map(([level, count]) => ({ level, count }))
       .sort((a, b) => b.count - a.count);
 
     return stats;

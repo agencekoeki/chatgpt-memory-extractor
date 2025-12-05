@@ -249,6 +249,23 @@
       margin-top: 2px;
     }
 
+    .privacy-mini-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+
+    .privacy-mini {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .privacy-mini.public { color: #4ade80; }
+    .privacy-mini.semi-prive { color: #facc15; }
+    .privacy-mini.prive { color: #fb923c; }
+    .privacy-mini.tres-prive { color: #f87171; }
+
     /* ===== MAIN CONTENT ===== */
     .main {
       padding: 40px 60px;
@@ -669,6 +686,12 @@
     .category-fill.trust { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
     .category-fill.voice { background: linear-gradient(90deg, #ec4899, #f472b6); }
 
+    /* Privacy level fills */
+    .category-fill.public { background: linear-gradient(90deg, #22c55e, #4ade80); }
+    .category-fill.semi-prive { background: linear-gradient(90deg, #eab308, #facc15); }
+    .category-fill.prive { background: linear-gradient(90deg, #f97316, #fb923c); }
+    .category-fill.tres-prive { background: linear-gradient(90deg, #ef4444, #f87171); }
+
     /* ===== MEMORIES/EXTRACTIONS ===== */
     .memory-item {
       padding: 16px 0;
@@ -683,6 +706,44 @@
 
     .memory-item:last-child {
       border-bottom: none;
+    }
+
+    .memory-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+
+    .privacy-badge {
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    .privacy-badge.public {
+      background: rgba(34, 197, 94, 0.1);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .privacy-badge.semi-prive {
+      background: rgba(250, 204, 21, 0.1);
+      color: #facc15;
+      border: 1px solid rgba(250, 204, 21, 0.2);
+    }
+
+    .privacy-badge.prive {
+      background: rgba(251, 146, 60, 0.1);
+      color: #fb923c;
+      border: 1px solid rgba(251, 146, 60, 0.2);
+    }
+
+    .privacy-badge.tres-prive {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.25);
     }
 
     .memory-text {
@@ -852,6 +913,15 @@
         <div class="stat-card" id="stat-categories">
           <div class="stat-value" id="totalCategories">-</div>
           <div class="stat-label">Categories E-E-A-T</div>
+        </div>
+        <div class="stat-card" id="stat-privacy">
+          <div class="privacy-mini-stats" id="privacyMiniStats">
+            <span class="privacy-mini public">🟢 -</span>
+            <span class="privacy-mini semi-prive">🟡 -</span>
+            <span class="privacy-mini prive">🟠 -</span>
+            <span class="privacy-mini tres-prive">🔴 -</span>
+          </div>
+          <div class="stat-label">Niveaux de confidentialite</div>
         </div>
       </div>
 

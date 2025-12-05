@@ -143,6 +143,21 @@ function revealAllData(results, memories) {
     document.getElementById('stat-categories').classList.add('reveal');
   }, 400);
 
+  // Privacy stats
+  setTimeout(() => {
+    const privacy = results.statistics?.byPrivacy || {};
+    const container = document.getElementById('privacyMiniStats');
+    if (container) {
+      container.innerHTML = `
+        <span class="privacy-mini public">🟢 ${privacy['public'] || 0}</span>
+        <span class="privacy-mini semi-prive">🟡 ${privacy['semi-prive'] || 0}</span>
+        <span class="privacy-mini prive">🟠 ${privacy['prive'] || 0}</span>
+        <span class="privacy-mini tres-prive">🔴 ${privacy['tres-prive'] || 0}</span>
+      `;
+    }
+    document.getElementById('stat-privacy')?.classList.add('reveal');
+  }, 500);
+
   // Reveal persona
   setTimeout(() => {
     renderPersona(results.persona);
@@ -482,6 +497,39 @@ function renderStats(statistics) {
     `;
   });
 
+  // Privacy distribution
+  if (statistics.byPrivacy) {
+    const privacyLabels = {
+      'public': { icon: '🟢', label: 'Public', class: 'public' },
+      'semi-prive': { icon: '🟡', label: 'Semi-privé', class: 'semi-prive' },
+      'prive': { icon: '🟠', label: 'Privé', class: 'prive' },
+      'tres-prive': { icon: '🔴', label: 'Très privé', class: 'tres-prive' }
+    };
+
+    chartHtml += '<div class="card-title" style="margin-top: 24px;">Niveaux de confidentialite</div>';
+    const privacyTotal = Object.values(statistics.byPrivacy).reduce((a, b) => a + b, 0) || 1;
+    const maxPrivacy = Math.max(...Object.values(statistics.byPrivacy)) || 1;
+
+    ['public', 'semi-prive', 'prive', 'tres-prive'].forEach(level => {
+      const count = statistics.byPrivacy[level] || 0;
+      const width = (count / maxPrivacy) * 100;
+      const percent = Math.round((count / privacyTotal) * 100);
+      const info = privacyLabels[level];
+
+      chartHtml += `
+        <div class="category-bar">
+          <div class="category-header">
+            <span class="category-name">${info.icon} ${info.label}</span>
+            <span class="category-count">${count} (${percent}%)</span>
+          </div>
+          <div class="category-track">
+            <div class="category-fill ${info.class}" style="width: ${width}%;"></div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
   // Top tags
   if (statistics.topTags?.length) {
     chartHtml += '<div class="card-title" style="margin-top: 24px;">Tags frequents</div>';
@@ -506,13 +554,25 @@ function renderExtractions(extractions) {
     return;
   }
 
+  // Privacy level config
+  const privacyLevels = {
+    'public': { icon: '🟢', label: 'Public', class: 'public' },
+    'semi-prive': { icon: '🟡', label: 'Semi-privé', class: 'semi-prive' },
+    'prive': { icon: '🟠', label: 'Privé', class: 'prive' },
+    'tres-prive': { icon: '🔴', label: 'Très privé', class: 'tres-prive' }
+  };
+
   let html = '';
   extractions.slice(0, 50).forEach((ext, index) => {
     const delay = Math.min(index * 0.03, 1.5);
     const categories = ext.categories || [];
+    const privacy = privacyLevels[ext.privacy_level] || privacyLevels['public'];
 
     html += `
       <div class="memory-item revealed" style="animation-delay: ${delay}s;">
+        <div class="memory-header">
+          <span class="privacy-badge ${privacy.class}">${privacy.icon} ${privacy.label}</span>
+        </div>
         <div class="memory-text">${escapeHtml(ext.text || '')}</div>
         <div class="memory-meta">
           ${categories.map(c => `<span class="memory-category ${c}">${c}</span>`).join('')}
