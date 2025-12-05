@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.7 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.8 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 // Évite double chargement
@@ -83,16 +83,43 @@ function simulateClick(element) {
 
   log(`Simulation clic sur: ${element.tagName} (${element.getAttribute('data-testid') || element.getAttribute('aria-label') || 'no-id'})`, 'debug');
 
-  // NE PAS faire scrollIntoView - ça perturbe la position
+  // Vérifier si l'élément est dans le viewport, sinon scroller
+  let rect = element.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
 
-  const rect = element.getBoundingClientRect();
+  // Si l'élément est hors du viewport, on le scroll en vue
+  if (rect.top < 0 || rect.bottom > viewportHeight || rect.left < 0 || rect.right > viewportWidth) {
+    log(`  Élément hors viewport (y=${Math.round(rect.top)}), scroll...`, 'debug');
+    element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+    // Recalculer après scroll
+    rect = element.getBoundingClientRect();
+  }
+
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
 
   log(`  Position: x=${Math.round(x)}, y=${Math.round(y)}`, 'debug');
 
-  // Méthode 1: Trouver l'élément RÉEL au point de clic (peut être un enfant)
-  const realTarget = document.elementFromPoint(x, y);
+  // Trouver l'élément au point de clic, mais IGNORER les overlays/backdrops
+  let realTarget = document.elementFromPoint(x, y);
+
+  // Filtrer les overlays (fixed, z-index élevé, inset-0, etc.)
+  if (realTarget) {
+    const realClasses = realTarget.className?.toString?.() || '';
+    const realStyle = window.getComputedStyle(realTarget);
+    const isOverlay = realClasses.includes('fixed') ||
+                      realClasses.includes('inset-0') ||
+                      realClasses.includes('z-50') ||
+                      realClasses.includes('backdrop') ||
+                      (realStyle.position === 'fixed' && realStyle.inset === '0px');
+
+    if (isOverlay && realTarget !== element) {
+      log(`  Overlay détecté, ignoré: ${realTarget.tagName}`, 'debug');
+      realTarget = element; // Utiliser l'élément original
+    }
+  }
+
   if (realTarget && realTarget !== element) {
     log(`  Élément réel au point: ${realTarget.tagName} (${realTarget.className?.substring?.(0, 30) || ''})`, 'debug');
   }
@@ -804,7 +831,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.7 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.8 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
