@@ -70,21 +70,45 @@ async function navigateToMemories() {
   if (userMenuBtn) {
     log('Menu utilisateur trouvé', 'success');
     userMenuBtn.click();
-    await wait(500);
+    await wait(800); // Wait longer for menu to appear
   }
 
-  // Step 2: Click on "Paramètres" / "Settings"
+  // Step 2: Click on "Paramètres" / "Settings" in dropdown menu
   await wait(300);
-  const settingsBtn = findButtonByText(['paramètres', 'settings']);
+
+  // Look for menu items more thoroughly
+  let settingsBtn = null;
+  const menuItems = document.querySelectorAll('[role="menuitem"], [role="menu"] button, [data-radix-collection-item]');
+
+  for (const item of menuItems) {
+    const text = item.textContent?.toLowerCase();
+    if (text?.includes('paramètres') || text?.includes('settings')) {
+      settingsBtn = item;
+      break;
+    }
+  }
+
+  // Fallback: any clickable with settings text
+  if (!settingsBtn) {
+    settingsBtn = [...document.querySelectorAll('div, span, button, a')].find(el => {
+      const text = el.textContent?.trim().toLowerCase();
+      return text === 'paramètres' || text === 'settings';
+    });
+  }
 
   if (settingsBtn) {
     log('Bouton Paramètres trouvé', 'success');
     settingsBtn.click();
     await wait(1000);
   } else {
-    log('Navigation directe vers settings...', 'warning');
-    window.location.hash = '#settings';
-    await wait(1500);
+    log('Paramètres non trouvé, essai via data-testid...', 'warning');
+    // Try clicking directly on a settings-related element
+    const directSettings = document.querySelector('[data-testid*="settings"]') ||
+                           document.querySelector('[href*="settings"]');
+    if (directSettings) {
+      directSettings.click();
+      await wait(1000);
+    }
   }
 
   // Step 3: Wait for settings modal to open
