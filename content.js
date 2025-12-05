@@ -62,7 +62,6 @@ async function navigateToMemories() {
   const userMenuBtn = document.querySelector('[data-testid="profile-button"]') ||
                       document.querySelector('button[aria-label*="enu"]') ||
                       document.querySelector('nav button:last-child') ||
-                      // Look for the user name button at bottom of sidebar
                       [...document.querySelectorAll('button')].find(b =>
                         b.textContent?.includes('@') ||
                         b.querySelector('img[alt]')
@@ -83,17 +82,26 @@ async function navigateToMemories() {
     settingsBtn.click();
     await wait(1000);
   } else {
-    // Try direct navigation
     log('Navigation directe vers settings...', 'warning');
     window.location.hash = '#settings';
     await wait(1500);
   }
 
-  // Step 3: Click on "Personnalisation" / "Personalization" tab
+  // Step 3: Wait for settings modal to open
+  const settingsModal = await waitFor('[role="dialog"]', 5000);
+  if (!settingsModal) {
+    log('Modale settings non trouvée', 'error');
+    return { success: false, error: 'Modale settings non trouvée' };
+  }
+
+  log('Modale settings ouverte', 'success');
+
+  // Step 4: Click on "Personnalisation" tab
   updateStatus('loading', 'Navigation vers Personnalisation...');
   await wait(500);
 
-  const personalizationTab = findButtonByText(['personnalisation', 'personalization']);
+  const personalizationTab = settingsModal.querySelector('[data-testid="personalization-tab"]') ||
+                              findButtonByText(['personnalisation', 'personalization']);
 
   if (personalizationTab) {
     log('Onglet Personnalisation trouvé', 'success');
@@ -101,64 +109,58 @@ async function navigateToMemories() {
     await wait(1000);
   }
 
-  // Step 4: Scroll to find Memory section and click "Gérer" / "Manage"
+  // Step 5: Find scrollable container INSIDE the settings modal and scroll to Memory section
   updateStatus('loading', 'Recherche section Mémoire...');
 
-  // Find the settings content area
-  const settingsContent = document.querySelector('[class*="overflow-y-auto"]') ||
-                          document.querySelector('main') ||
-                          document.body;
+  // The scrollable area is inside the modal - find it
+  const scrollContainer = settingsModal.querySelector('[class*="overflow-y-auto"]') ||
+                          settingsModal.querySelector('[class*="overflow-auto"]') ||
+                          [...settingsModal.querySelectorAll('div')].find(div => {
+                            const style = window.getComputedStyle(div);
+                            return (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+                                   div.scrollHeight > div.clientHeight;
+                          }) ||
+                          settingsModal;
 
-  // Scroll to find memory section
-  let found = false;
-  for (let i = 0; i < 15; i++) {
-    // Look for memory indicators: "Remplissage" or "Memory" or "Mémoire"
-    const memorySection = findByText(['remplissage', 'mémoire', 'memory'], 'div, span, h2, h3');
+  log('Conteneur scroll trouvé, recherche de Mémoire...', 'info');
 
-    if (memorySection) {
-      log('Section Mémoire trouvée', 'success');
-      memorySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await wait(500);
-      found = true;
+  // Scroll to find "Mémoire" section
+  let manageBtn = null;
+  for (let i = 0; i < 20; i++) {
+    // Look for "Mémoire" heading or "Remplissage" text
+    const memoryHeading = [...settingsModal.querySelectorAll('h2, h3, div, span')].find(el => {
+      const text = el.textContent?.trim();
+      return text === 'Mémoire' || text === 'Memory';
+    });
+
+    // Look for the "Gérer" button
+    manageBtn = [...settingsModal.querySelectorAll('button')].find(btn => {
+      const text = btn.textContent?.trim().toLowerCase();
+      return text === 'gérer' || text === 'manage';
+    });
+
+    if (manageBtn) {
+      log('Bouton Gérer trouvé!', 'success');
       break;
     }
 
-    settingsContent.scrollTop += 300;
+    if (memoryHeading) {
+      memoryHeading.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await wait(300);
+    }
+
+    // Scroll down in the container
+    scrollContainer.scrollTop += 200;
     await wait(300);
   }
 
-  // Step 5: Find and click the manage button (might be "Gérer" or icon button)
-  updateStatus('loading', 'Ouverture des éléments mémorisés...');
-  await wait(500);
-
-  // The manage button might be near "Remplissage" text
-  const manageBtn = findButtonByText(['gérer', 'manage', 'voir', 'view']) ||
-                    // Or look for a button in the memory section area
-                    document.querySelector('[data-testid*="memory"]') ||
-                    document.querySelector('[data-testid*="manage"]');
-
   if (!manageBtn) {
-    // Try to find any button that could open memory modal
-    const allButtons = [...document.querySelectorAll('button')];
-    const memoryBtn = allButtons.find(b => {
-      const parent = b.closest('div');
-      return parent?.textContent?.includes('Remplissage') ||
-             parent?.textContent?.includes('Mémoire') ||
-             parent?.textContent?.includes('Memory');
-    });
-
-    if (memoryBtn) {
-      log('Bouton mémoire trouvé (via parent)', 'success');
-      memoryBtn.click();
-      await wait(1500);
-      return { success: true };
-    }
-
-    log('Bouton Gérer non trouvé', 'error');
-    return { success: false, error: 'Bouton Gérer non trouvé. Ouvrez manuellement Settings > Personnalisation > Mémoire > Gérer' };
+    log('Bouton Gérer non trouvé après scroll', 'error');
+    return { success: false, error: 'Bouton Gérer non trouvé. Scrollez manuellement jusqu\'à la section Mémoire.' };
   }
 
-  log('Bouton Gérer trouvé', 'success');
+  // Step 6: Click "Gérer" button to open memories modal
+  updateStatus('loading', 'Ouverture des éléments mémorisés...');
   manageBtn.click();
   await wait(1500);
 
