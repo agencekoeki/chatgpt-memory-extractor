@@ -143,23 +143,23 @@ export class APIClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // ========== MODEL MAPPING ==========
+  // ========== MODEL MAPPING (December 2025) ==========
   static getModels() {
     return {
       anthropic: {
-        haiku: 'claude-3-5-haiku-20241022',
-        sonnet: 'claude-sonnet-4-20250514',
-        opus: 'claude-opus-4-20250514'
+        haiku: 'claude-haiku-4-5-20251015',      // Fast, cheap - Oct 2025
+        sonnet: 'claude-sonnet-4-5-20250929',    // Mid-tier - Sep 2025
+        opus: 'claude-opus-4-5-20251124'         // Best - Nov 2025
       },
       openai: {
-        mini: 'gpt-4o-mini',
-        standard: 'gpt-4o',
-        turbo: 'gpt-4-turbo'
+        mini: 'gpt-5-mini',                      // Fast, cheap - Aug 2025
+        standard: 'gpt-5.1',                     // Mid-tier - Nov 2025
+        thinking: 'gpt-5.1-thinking'             // Best reasoning - Nov 2025
       },
       google: {
-        flash: 'gemini-1.5-flash',
-        pro: 'gemini-1.5-pro',
-        ultra: 'gemini-ultra'
+        flash: 'gemini-2.5-flash',               // Fast, cheap
+        pro: 'gemini-3.0-pro',                   // Mid-tier - Nov 2025
+        deepthink: 'gemini-3.0-deep-think'       // Best reasoning - Dec 2025
       }
     };
   }
