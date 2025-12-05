@@ -1,5 +1,5 @@
-// ChatGPT Memory Extractor - Report Page v3.0
-// Persona E-E-A-T Display with progressive reveal
+// ChatGPT Memory Extractor - Report Page v4.0
+// Persona E-E-A-T Display with marketing landing
 
 // ========== STATE ==========
 let analysisResults = null;
@@ -9,9 +9,91 @@ let memories = [];
 document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupExport();
+  setupLanding();
   await loadData();
   listenForUpdates();
 });
+
+// ========== LANDING PAGE ==========
+function setupLanding() {
+  const cta = document.getElementById('landingCta');
+  if (cta) {
+    cta.addEventListener('click', hideLanding);
+  }
+}
+
+function populateLanding(results, memories) {
+  // Get persona name
+  const firstName = results?.persona?.mask?.profile?.firstName || 'Visiteur';
+  document.getElementById('landingName').textContent = firstName;
+
+  // Memory count
+  const count = results?.memoriesCount || memories.length || 0;
+  document.getElementById('landingCount').textContent = count;
+
+  // Privacy stats
+  const privacy = results?.statistics?.byPrivacy || {};
+  const publicCount = privacy['public'] || 0;
+  const sensitiveCount = (privacy['prive'] || 0) + (privacy['tres-prive'] || 0);
+
+  document.getElementById('landingPublic').textContent = publicCount;
+  document.getElementById('landingPrivate').textContent = sensitiveCount;
+
+  // Domains count
+  const domains = results?.persona?.mask?.expertiseDomains?.length ||
+                  results?.statistics?.categoryDistribution?.length || 0;
+  document.getElementById('landingDomains').textContent = domains;
+
+  // Generate teaser insights with blur effect
+  generateTeaserInsights(results);
+}
+
+function generateTeaserInsights(results) {
+  const container = document.getElementById('landingInsights');
+  if (!container) return;
+
+  const insights = [];
+
+  // Get some teaser data
+  const mask = results?.persona?.mask;
+  const stats = results?.statistics;
+
+  if (mask?.profile?.background) {
+    insights.push({ text: 'Parcours:', blur: truncate(mask.profile.background, 30) });
+  }
+  if (mask?.expertiseDomains?.[0]) {
+    insights.push({ text: 'Expert en:', blur: mask.expertiseDomains[0] });
+  }
+  if (mask?.bias) {
+    insights.push({ text: 'Biais cognitif:', blur: truncate(mask.bias, 25) });
+  }
+  if (stats?.topTags?.[0]) {
+    insights.push({ text: 'Theme recurrent:', blur: stats.topTags[0].tag });
+  }
+  if (mask?.type) {
+    insights.push({ text: 'Profil:', blur: mask.type });
+  }
+
+  // Render with blur
+  container.innerHTML = insights.slice(0, 4).map(i => `
+    <div class="insight-teaser">
+      ${i.text} <span class="blur">${i.blur}</span>
+    </div>
+  `).join('');
+}
+
+function truncate(text, max) {
+  if (!text) return '???';
+  return text.length > max ? text.slice(0, max) + '...' : text;
+}
+
+function hideLanding() {
+  const landing = document.getElementById('landing');
+  if (landing) {
+    landing.classList.add('hidden');
+    triggerLightTrace();
+  }
+}
 
 // ========== NAVIGATION ==========
 function setupNavigation() {
@@ -42,6 +124,9 @@ async function loadData() {
     if (analysisResults && analysisResults.success) {
       revealAllData(analysisResults, memories);
     } else if (memories.length > 0) {
+      // Basic landing with just memory count
+      document.getElementById('landingName').textContent = 'Visiteur';
+      document.getElementById('landingCount').textContent = memories.length;
       document.getElementById('totalMemories').textContent = memories.length;
       document.getElementById('stat-memories').classList.add('reveal');
     }
@@ -124,6 +209,9 @@ function handleComplete(results) {
 
 // ========== REVEAL DATA ==========
 function revealAllData(results, memories) {
+  // Populate landing page
+  populateLanding(results, memories);
+
   // Update header
   if (results.persona?.metadata?.generatedAt) {
     const date = new Date(results.persona.metadata.generatedAt);
