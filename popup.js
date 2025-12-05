@@ -296,7 +296,8 @@ async function copyToClipboard() {
 
 // ========== NAVIGATION ==========
 function openReport() {
-  chrome.runtime.sendMessage({ action: 'openReport' });
+  // Open report directly instead of going through background.js
+  chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
 }
 
 function openSettings() {
