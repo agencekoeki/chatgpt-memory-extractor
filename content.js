@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.9 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.11 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 // Évite double chargement
@@ -584,24 +584,46 @@ async function extractMemories() {
   log('Extraction des éléments mémorisés...', 'info');
   updateStatus('loading', 'Extraction en cours...');
 
-  const modal = await waitFor('[role="dialog"]', 5000);
+  // Cherche SPÉCIFIQUEMENT la modale avec le titre "Éléments mémorisés"
+  // Il peut y avoir plusieurs [role="dialog"] sur la page
+  let modal = null;
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  log(`${dialogs.length} dialog(s) trouvé(s) sur la page`, 'debug');
 
-  if (!modal) {
-    return { success: false, error: 'Modale non trouvée', memories: [] };
+  for (const dialog of dialogs) {
+    // Cherche un header/titre avec "mémorisés" ou "memorized"
+    const header = dialog.querySelector('h1, h2, h3, [class*="font-semibold"], [class*="font-bold"]');
+    const headerText = header?.textContent?.toLowerCase() || '';
+
+    log(`  Dialog header: "${headerText.substring(0, 50)}"`, 'debug');
+
+    if (headerText.includes('mémorisés') || headerText.includes('memorized') || headerText.includes('memories')) {
+      modal = dialog;
+      log(`  >> C'est la bonne modale!`, 'success');
+      break;
+    }
+
+    // Fallback: cherche si la modale contient une table avec plusieurs lignes
+    const table = dialog.querySelector('table');
+    const rows = table?.querySelectorAll('tr');
+    if (rows && rows.length > 2) {
+      // Vérifie que ce n'est pas une modale de settings générique
+      const hasDeleteButtons = dialog.querySelectorAll('button[aria-label*="supprimer"], button[aria-label*="delete"], button svg').length > 2;
+      if (hasDeleteButtons) {
+        log(`  >> Modale avec table de ${rows.length} lignes et boutons delete`, 'success');
+        modal = dialog;
+        break;
+      }
+    }
   }
 
-  const modalText = modal.textContent || '';
-  const isMemoryModal = modalText.includes('mémorisés') ||
-                        modalText.includes('Remplissage') ||
-                        modalText.includes('Memory') ||
-                        modalText.includes('memorized');
-
-  if (!isMemoryModal) {
-    log('Mauvaise modale: ' + modalText.substring(0, 100), 'warning');
-    return { success: false, error: 'Mauvaise modale détectée', memories: [] };
+  if (!modal) {
+    log('Aucune modale "Éléments mémorisés" trouvée', 'error');
+    return { success: false, error: 'Modale mémoires non trouvée', memories: [] };
   }
 
   log('Modale "Éléments mémorisés" détectée', 'success');
+  log(`Contenu modale (150 chars): "${modal.textContent?.substring(0, 150)}"`, 'debug');
 
   const scrollContainer = modal.querySelector('[class*="overflow-y-auto"]') ||
                           modal.querySelector('table')?.parentElement ||
@@ -665,62 +687,84 @@ function extractFromTable(container) {
 
   log('Analyse structure modale pour extraction...', 'debug');
 
-  // MÉTHODE 1 (PRINCIPALE): Structure exacte de ChatGPT (décembre 2024)
-  // Les souvenirs sont dans: table > tr > td > div > div.py-2.whitespace-pre-wrap
-  // Sélecteur: .py-2.whitespace-pre-wrap ou équivalent
-  const memoryDivs = container.querySelectorAll(
-    '.whitespace-pre-wrap, [class*="whitespace-pre-wrap"], .py-2[class*="whitespace"]'
-  );
-  log(`  Méthode 1: ${memoryDivs.length} divs whitespace-pre-wrap`, 'debug');
+  // MÉTHODE 1 (PRINCIPALE): Lignes de table directement
+  // Chaque souvenir est dans une ligne <tr> avec une cellule <td>
+  const table = container.querySelector('table');
+  if (table) {
+    const rows = table.querySelectorAll('tr');
+    log(`  Méthode 1: Table trouvée avec ${rows.length} lignes`, 'debug');
 
-  for (const div of memoryDivs) {
-    const text = div.textContent?.trim();
-    // Un souvenir doit avoir du contenu (min 20 chars)
-    if (text && text.length >= 20 && !isSystemText(text) && !seenTexts.has(text)) {
-      seenTexts.add(text);
-      memories.push({ text, timestamp: new Date().toISOString() });
-      log(`  + Mémoire: "${text.substring(0, 60)}..."`, 'debug');
-    }
-  }
-
-  // MÉTHODE 2: Cherche dans les lignes de table si méthode 1 n'a rien trouvé
-  if (memories.length === 0) {
-    log('  Méthode 2: recherche dans table rows...', 'debug');
-    const tableRows = container.querySelectorAll('tr');
-
-    for (const row of tableRows) {
+    for (const row of rows) {
       const firstCell = row.querySelector('td');
       if (!firstCell) continue;
 
-      // Le texte du souvenir est dans un div à l'intérieur du td
-      const textDiv = firstCell.querySelector('[class*="whitespace"]') ||
-                      firstCell.querySelector('[class*="py-2"]') ||
-                      firstCell.querySelector('div > div');
+      // Le texte du souvenir est dans le premier div significatif de la cellule
+      // Structure: td > div > div (le div interne contient le texte)
+      let text = '';
 
-      if (textDiv) {
-        const text = textDiv.textContent?.trim();
-        if (text && text.length >= 20 && !isSystemText(text) && !seenTexts.has(text)) {
-          seenTexts.add(text);
-          memories.push({ text, timestamp: new Date().toISOString() });
-          log(`  + Mémoire (table): "${text.substring(0, 60)}..."`, 'debug');
+      // Essayer de trouver le div avec le texte (souvent le plus profond)
+      const allDivs = firstCell.querySelectorAll('div');
+      for (const div of allDivs) {
+        const divText = div.textContent?.trim();
+        // Prendre le div le plus interne qui a du texte substantiel
+        // et qui n'est PAS un conteneur de plusieurs enfants
+        if (divText && divText.length >= 30 && div.querySelectorAll('div').length === 0) {
+          text = divText;
+          break;
         }
+      }
+
+      // Fallback: prendre le texte de la cellule si pas trouvé
+      if (!text) {
+        text = firstCell.textContent?.trim();
+      }
+
+      if (text && text.length >= 30 && text.length < 3000 && !isSystemText(text) && !seenTexts.has(text)) {
+        seenTexts.add(text);
+        memories.push({ text, timestamp: new Date().toISOString() });
+        log(`  + Mémoire: "${text.substring(0, 70)}..."`, 'debug');
       }
     }
   }
 
-  // MÉTHODE 3: Cherche les divs dans les cellules avec classe border-token
+  // MÉTHODE 2: Divs avec classe whitespace (fallback si pas de table)
   if (memories.length === 0) {
-    log('  Méthode 3: recherche dans cellules bordure...', 'debug');
-    const borderCells = container.querySelectorAll('[class*="border-token"], [class*="border-b"]');
+    log('  Méthode 2: recherche divs whitespace...', 'debug');
+    const memoryDivs = container.querySelectorAll(
+      '[class*="whitespace"], [class*="pre-wrap"]'
+    );
 
-    for (const cell of borderCells) {
-      const innerDiv = cell.querySelector('div div') || cell.querySelector('div');
-      if (innerDiv) {
-        const text = innerDiv.textContent?.trim();
-        if (text && text.length >= 30 && text.length < 2000 && !isSystemText(text) && !seenTexts.has(text)) {
-          seenTexts.add(text);
-          memories.push({ text, timestamp: new Date().toISOString() });
-          log(`  + Mémoire (border): "${text.substring(0, 60)}..."`, 'debug');
+    for (const div of memoryDivs) {
+      const text = div.textContent?.trim();
+      if (text && text.length >= 30 && !isSystemText(text) && !seenTexts.has(text)) {
+        seenTexts.add(text);
+        memories.push({ text, timestamp: new Date().toISOString() });
+        log(`  + Mémoire (whitespace): "${text.substring(0, 60)}..."`, 'debug');
+      }
+    }
+  }
+
+  // MÉTHODE 3: Divs à côté d'un bouton delete (icône poubelle)
+  if (memories.length === 0) {
+    log('  Méthode 3: recherche éléments avec bouton supprimer...', 'debug');
+    const deleteButtons = container.querySelectorAll('button');
+
+    for (const btn of deleteButtons) {
+      // Si c'est un bouton delete, le souvenir est dans un sibling ou parent
+      const hasSvg = btn.querySelector('svg');
+      if (!hasSvg) continue;
+
+      // Remonter au parent row/conteneur
+      const row = btn.closest('tr') || btn.closest('[class*="flex"]');
+      if (row) {
+        const textEl = row.querySelector('td') || row.querySelector('div');
+        if (textEl) {
+          const text = textEl.textContent?.trim();
+          if (text && text.length >= 30 && text.length < 3000 && !isSystemText(text) && !seenTexts.has(text)) {
+            seenTexts.add(text);
+            memories.push({ text, timestamp: new Date().toISOString() });
+            log(`  + Mémoire (delete): "${text.substring(0, 60)}..."`, 'debug');
+          }
         }
       }
     }
@@ -730,7 +774,7 @@ function extractFromTable(container) {
   const cleaned = memories.filter((mem, idx) => {
     for (let i = 0; i < memories.length; i++) {
       if (i !== idx && memories[i].text.includes(mem.text) && memories[i].text.length > mem.text.length) {
-        return false; // Ce texte est un sous-ensemble d'un autre, on le supprime
+        return false;
       }
     }
     return true;
@@ -894,7 +938,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.9 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.11 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
