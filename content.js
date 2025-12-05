@@ -1,4 +1,4 @@
-// ChatGPT Memory Extractor - Content Script v3.6 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.7 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
 // Évite double chargement
@@ -83,8 +83,7 @@ function simulateClick(element) {
 
   log(`Simulation clic sur: ${element.tagName} (${element.getAttribute('data-testid') || element.getAttribute('aria-label') || 'no-id'})`, 'debug');
 
-  // S'assurer que l'élément est visible et dans le viewport
-  element.scrollIntoView({ behavior: 'instant', block: 'center' });
+  // NE PAS faire scrollIntoView - ça perturbe la position
 
   const rect = element.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
@@ -256,33 +255,48 @@ async function step1_findUserMenu() {
   }
 }
 
-// ========== STEP 2: FIND SETTINGS IN MENU ==========
+// ========== STEP 2: FIND SETTINGS OR PERSONALIZATION IN MENU ==========
 async function step2_findSettings() {
-  log('========== ÉTAPE 2: BOUTON PARAMÈTRES ==========', 'info');
+  log('========== ÉTAPE 2: BOUTON PARAMÈTRES/PERSONNALISATION ==========', 'info');
 
   // Cherche les menuitems visibles
-  const menuItems = document.querySelectorAll('[role="menuitem"], [role="menu"] button, [data-radix-menu-content] button');
+  const menuItems = document.querySelectorAll('[role="menuitem"], [role="menu"] a, [role="menu"] button, [data-radix-menu-content] a, [data-radix-menu-content] button');
   log(`${menuItems.length} items de menu trouvés`, 'debug');
+
+  let personnalisationBtn = null;
+  let parametresBtn = null;
 
   menuItems.forEach((item, i) => {
     if (item.offsetHeight > 0) {
-      log(`  menu[${i}]: "${item.textContent?.trim()?.substring(0, 40)}"`, 'debug');
+      const text = item.textContent?.trim() || '';
+      log(`  menu[${i}]: "${text.substring(0, 40)}"`, 'debug');
+
+      // Cherche "Personnalisation" en priorité (match exact ou presque)
+      if (text.toLowerCase() === 'personnalisation' || text.toLowerCase() === 'personalization') {
+        personnalisationBtn = item;
+        log(`    >> PERSONNALISATION trouvé!`, 'success');
+      }
+      // Cherche "Paramètres" EXACT (pas "Paramètres de l'espace de travail")
+      else if ((text.toLowerCase() === 'paramètres' || text.toLowerCase() === 'settings') && !parametresBtn) {
+        parametresBtn = item;
+        log(`    >> PARAMÈTRES trouvé!`, 'success');
+      }
     }
   });
 
-  // Recherche par texte
-  const searchTexts = ['paramètres', 'settings', 'réglages', 'préférences', 'preferences'];
-  log(`Recherche par texte: ${searchTexts.join(', ')}`, 'debug');
-
-  const settingsBtn = findButtonByText(searchTexts);
-
-  if (settingsBtn) {
-    log(`RÉSULTAT ÉTAPE 2: Bouton Paramètres trouvé: "${settingsBtn.textContent?.trim()}"`, 'success');
-    return { success: true, element: settingsBtn };
-  } else {
-    log(`RÉSULTAT ÉTAPE 2: Bouton Paramètres NON trouvé`, 'error');
-    return { success: false, element: null };
+  // Priorité: Personnalisation > Paramètres
+  if (personnalisationBtn) {
+    log(`RÉSULTAT ÉTAPE 2: Personnalisation trouvé directement dans le menu!`, 'success');
+    return { success: true, element: personnalisationBtn, isPersonalization: true };
   }
+
+  if (parametresBtn) {
+    log(`RÉSULTAT ÉTAPE 2: Paramètres trouvé: "${parametresBtn.textContent?.trim()}"`, 'success');
+    return { success: true, element: parametresBtn, isPersonalization: false };
+  }
+
+  log(`RÉSULTAT ÉTAPE 2: Aucun bouton trouvé`, 'error');
+  return { success: false, element: null };
 }
 
 // ========== STEP 3: FIND PERSONALIZATION TAB ==========
@@ -450,6 +464,17 @@ async function navigateToMemories() {
   log('🚀 NAVIGATION AUTOMATIQUE AVEC DIAGNOSTIC', 'info');
   updateStatus('loading', 'Diagnostic en cours...');
 
+  // ÉTAPE 0: Vérifier si la sidebar est visible, sinon l'ouvrir
+  const sidebarToggle = document.querySelector('[data-testid="open-sidebar-button"]') ||
+                        document.querySelector('button[aria-label*="Ouvrir la barre"]') ||
+                        document.querySelector('button[aria-label*="Open sidebar"]');
+
+  if (sidebarToggle && sidebarToggle.offsetHeight > 0) {
+    log('Sidebar repliée détectée, ouverture...', 'warning');
+    simulateClick(sidebarToggle);
+    await wait(800);
+  }
+
   // ÉTAPE 1
   const step1 = await step1_findUserMenu();
   if (!step1.success) {
@@ -478,24 +503,33 @@ async function navigateToMemories() {
 
   await wait(300);
 
-  // ÉTAPE 2
+  // ÉTAPE 2: Cherche Personnalisation ou Paramètres dans le menu
   const step2 = await step2_findSettings();
   if (!step2.success) {
-    return { success: false, error: 'Étape 2 échouée: Bouton Paramètres non trouvé. Voir console.' };
+    return { success: false, error: 'Étape 2 échouée: Bouton Paramètres/Personnalisation non trouvé. Voir console.' };
   }
 
-  log('Clic sur Paramètres...', 'info');
-  simulateClick(step2.element);
-  await wait(1200);
-
-  // ÉTAPE 3
-  const step3 = await step3_findPersonalization();
-  if (!step3.success) {
-    log('Étape 3: Personnalisation non trouvé, on continue...', 'warning');
+  if (step2.isPersonalization) {
+    // Raccourci: on a trouvé Personnalisation directement dans le menu!
+    log('Clic sur Personnalisation (raccourci)...', 'info');
+    simulateClick(step2.element);
+    await wait(1500);
+    // On saute l'étape 3
   } else {
-    log('Clic sur Personnalisation...', 'info');
-    simulateClick(step3.element);
-    await wait(800);
+    // Chemin classique: Paramètres puis Personnalisation
+    log('Clic sur Paramètres...', 'info');
+    simulateClick(step2.element);
+    await wait(1200);
+
+    // ÉTAPE 3
+    const step3 = await step3_findPersonalization();
+    if (!step3.success) {
+      log('Étape 3: Personnalisation non trouvé, on continue...', 'warning');
+    } else {
+      log('Clic sur Personnalisation...', 'info');
+      simulateClick(step3.element);
+      await wait(800);
+    }
   }
 
   // ÉTAPE 4
@@ -770,7 +804,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.6 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.7 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
