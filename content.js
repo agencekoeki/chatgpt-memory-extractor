@@ -1,5 +1,12 @@
-// ChatGPT Memory Extractor - Content Script v3.5 DIAGNOSTIC
+// ChatGPT Memory Extractor - Content Script v3.6 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
+
+// Évite double chargement
+if (window.__memoryExtractorLoaded) {
+  console.log('[MemoryExtractor] Déjà chargé, skip');
+} else {
+  window.__memoryExtractorLoaded = true;
+}
 
 let isExtracting = false;
 let diagnosticMode = true; // Active les logs détaillés
@@ -76,10 +83,21 @@ function simulateClick(element) {
 
   log(`Simulation clic sur: ${element.tagName} (${element.getAttribute('data-testid') || element.getAttribute('aria-label') || 'no-id'})`, 'debug');
 
-  // Méthode 1: Events natifs complets (mousedown -> mouseup -> click)
+  // S'assurer que l'élément est visible et dans le viewport
+  element.scrollIntoView({ behavior: 'instant', block: 'center' });
+
   const rect = element.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
+
+  log(`  Position: x=${Math.round(x)}, y=${Math.round(y)}`, 'debug');
+
+  // Méthode 1: Trouver l'élément RÉEL au point de clic (peut être un enfant)
+  const realTarget = document.elementFromPoint(x, y);
+  if (realTarget && realTarget !== element) {
+    log(`  Élément réel au point: ${realTarget.tagName} (${realTarget.className?.substring?.(0, 30) || ''})`, 'debug');
+  }
+  const targetElement = realTarget || element;
 
   const eventOptions = {
     bubbles: true,
@@ -87,32 +105,52 @@ function simulateClick(element) {
     view: window,
     clientX: x,
     clientY: y,
-    button: 0
+    screenX: x,
+    screenY: y,
+    button: 0,
+    buttons: 1
   };
 
-  // Séquence complète d'événements souris
-  element.dispatchEvent(new PointerEvent('pointerdown', { ...eventOptions, pointerType: 'mouse' }));
-  element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
-  element.dispatchEvent(new PointerEvent('pointerup', { ...eventOptions, pointerType: 'mouse' }));
-  element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-  element.dispatchEvent(new MouseEvent('click', eventOptions));
-
-  // Méthode 2: click() natif en backup
+  // Méthode 1: click() natif sur l'élément réel
   try {
-    element.click();
+    targetElement.click();
+    log(`  click() sur élément réel`, 'debug');
   } catch (e) {
-    log(`click() natif échoué: ${e.message}`, 'warning');
+    log(`  click() échoué: ${e.message}`, 'warning');
   }
 
-  // Méthode 3: Focus + Enter pour les éléments avec role="button"
-  if (element.getAttribute('role') === 'button') {
+  // Méthode 2: Séquence complète d'événements sur l'élément original ET réel
+  [element, targetElement].forEach(el => {
+    if (!el) return;
     try {
-      element.focus();
-      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-      element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-    } catch (e) {
-      log(`Keyboard event échoué: ${e.message}`, 'warning');
-    }
+      el.dispatchEvent(new PointerEvent('pointerdown', { ...eventOptions, pointerType: 'mouse' }));
+      el.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+      el.dispatchEvent(new PointerEvent('pointerup', { ...eventOptions, pointerType: 'mouse' }));
+      el.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+      el.dispatchEvent(new MouseEvent('click', eventOptions));
+    } catch (e) {}
+  });
+
+  // Méthode 3: Focus + Enter/Space
+  try {
+    element.focus();
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    element.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    // Aussi essayer Space
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, bubbles: true }));
+    element.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', keyCode: 32, bubbles: true }));
+  } catch (e) {
+    log(`  Keyboard events échoué: ${e.message}`, 'warning');
+  }
+
+  // Méthode 4: Chercher un <button> ou <a> enfant et cliquer dessus
+  const clickableChild = element.querySelector('button, a, [onclick], [role="button"]');
+  if (clickableChild && clickableChild !== element) {
+    log(`  Clic sur enfant cliquable: ${clickableChild.tagName}`, 'debug');
+    try {
+      clickableChild.click();
+    } catch (e) {}
   }
 
   return true;
@@ -732,7 +770,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.5 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.6 DIAGNOSTIC chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
