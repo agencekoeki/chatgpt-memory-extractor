@@ -227,7 +227,9 @@ async function startAnalysis() {
       throw new Error(response.error);
     }
 
-    // Analysis started, wait for completion via message listener
+    // Open report page immediately to show progress
+    openReport();
+    log('Rapport ouvert - analyse en cours...', 'info');
 
   } catch (error) {
     log('Erreur analyse: ' + error.message, 'error');
