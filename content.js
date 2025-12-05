@@ -1,7 +1,8 @@
-// ChatGPT Memory Extractor - Content Script v3.2
-// Adapté à la vraie structure DOM de ChatGPT
+// ChatGPT Memory Extractor - Content Script v3.3 DIAGNOSTIC
+// Mode debug pour identifier les bons sélecteurs
 
 let isExtracting = false;
+let diagnosticMode = true; // Active les logs détaillés
 
 // ========== LOGGING ==========
 function log(message, level = 'info') {
@@ -9,9 +10,10 @@ function log(message, level = 'info') {
     info: 'color: #6366f1;',
     success: 'color: #22c55e; font-weight: bold;',
     warning: 'color: #f59e0b;',
-    error: 'color: #ef4444; font-weight: bold;'
+    error: 'color: #ef4444; font-weight: bold;',
+    debug: 'color: #8b5cf6; font-style: italic;'
   };
-  console.log(`%c[MemoryExtractor] ${message}`, styles[level]);
+  console.log(`%c[MemoryExtractor] ${message}`, styles[level] || styles.info);
   chrome.runtime.sendMessage({ action: 'log', message, level }).catch(() => {});
 }
 
@@ -21,6 +23,48 @@ function updateStatus(type, message) {
 
 function reportProgress(count) {
   chrome.runtime.sendMessage({ action: 'progress', count }).catch(() => {});
+}
+
+// ========== DIAGNOSTIC FUNCTIONS ==========
+function diagElement(el, label = '') {
+  if (!el) return 'NULL';
+  const info = {
+    tag: el.tagName,
+    id: el.id || '-',
+    classes: el.className?.toString?.()?.substring(0, 80) || '-',
+    testId: el.getAttribute('data-testid') || '-',
+    ariaLabel: el.getAttribute('aria-label') || '-',
+    role: el.getAttribute('role') || '-',
+    text: el.textContent?.trim()?.substring(0, 50) || '-'
+  };
+  return `${label} <${info.tag}> id="${info.id}" data-testid="${info.testId}" aria="${info.ariaLabel}" role="${info.role}" text="${info.text}..."`;
+}
+
+function diagAllButtons(container = document) {
+  const buttons = container.querySelectorAll('button, [role="button"], [role="menuitem"]');
+  log(`=== DIAGNOSTIC: ${buttons.length} boutons trouvés ===`, 'debug');
+
+  const results = [];
+  buttons.forEach((btn, i) => {
+    const info = {
+      index: i,
+      tag: btn.tagName,
+      testId: btn.getAttribute('data-testid') || '',
+      ariaLabel: btn.getAttribute('aria-label') || '',
+      role: btn.getAttribute('role') || '',
+      text: btn.textContent?.trim()?.substring(0, 60) || '',
+      visible: btn.offsetHeight > 0,
+      classes: btn.className?.toString?.()?.substring(0, 50) || ''
+    };
+    results.push(info);
+
+    // Log only interesting buttons (visible with some identifier)
+    if (info.visible && (info.testId || info.ariaLabel || info.text)) {
+      log(`  [${i}] testId="${info.testId}" aria="${info.ariaLabel}" text="${info.text}"`, 'debug');
+    }
+  });
+
+  return results;
 }
 
 // ========== UTILITIES ==========
@@ -53,113 +97,310 @@ function findButtonByText(texts) {
   return findByText(texts, 'button, [role="button"], [role="menuitem"]');
 }
 
-// ========== NAVIGATION ==========
+// ========== STEP 1: FIND USER MENU ==========
+async function step1_findUserMenu() {
+  log('========== ÉTAPE 1: MENU UTILISATEUR ==========', 'info');
+
+  // Liste tous les sélecteurs qu'on essaie
+  const selectors = [
+    { name: 'data-testid="profile-button"', sel: '[data-testid="profile-button"]' },
+    { name: 'aria-label contient "enu"', sel: 'button[aria-label*="enu"]' },
+    { name: 'aria-label contient "Menu"', sel: 'button[aria-label*="Menu"]' },
+    { name: 'aria-label contient "profile"', sel: 'button[aria-label*="profile"]' },
+    { name: 'aria-label contient "account"', sel: 'button[aria-label*="account"]' },
+    { name: 'nav button:last-child', sel: 'nav button:last-child' },
+    { name: 'data-testid contient "user"', sel: '[data-testid*="user"]' },
+    { name: 'data-testid contient "avatar"', sel: '[data-testid*="avatar"]' },
+    { name: 'data-testid contient "profile"', sel: '[data-testid*="profile"]' },
+  ];
+
+  log('Recherche avec sélecteurs CSS:', 'debug');
+  let foundBtn = null;
+
+  for (const s of selectors) {
+    const el = document.querySelector(s.sel);
+    if (el) {
+      log(`  ✓ TROUVÉ: ${s.name}`, 'success');
+      log(`    -> ${diagElement(el)}`, 'debug');
+      if (!foundBtn && el.offsetHeight > 0) foundBtn = el;
+    } else {
+      log(`  ✗ ${s.name}`, 'debug');
+    }
+  }
+
+  // Recherche par contenu (@ ou avatar)
+  log('Recherche par contenu (@ ou avatar):', 'debug');
+  const allButtons = [...document.querySelectorAll('button')];
+  const btnWithAt = allButtons.find(b => b.textContent?.includes('@'));
+  const btnWithAvatar = allButtons.find(b => b.querySelector('img[alt]'));
+
+  if (btnWithAt) {
+    log(`  ✓ Bouton avec @: "${btnWithAt.textContent?.trim()?.substring(0, 40)}"`, 'success');
+    if (!foundBtn) foundBtn = btnWithAt;
+  }
+  if (btnWithAvatar) {
+    log(`  ✓ Bouton avec avatar img`, 'success');
+    if (!foundBtn) foundBtn = btnWithAvatar;
+  }
+
+  // Affiche tous les boutons de la sidebar/nav pour diagnostic
+  log('Boutons dans nav/aside:', 'debug');
+  const navButtons = document.querySelectorAll('nav button, aside button');
+  navButtons.forEach((btn, i) => {
+    if (btn.offsetHeight > 0) {
+      log(`  nav[${i}]: testId="${btn.getAttribute('data-testid') || '-'}" text="${btn.textContent?.trim()?.substring(0, 30) || '-'}"`, 'debug');
+    }
+  });
+
+  if (foundBtn) {
+    log(`RÉSULTAT ÉTAPE 1: Bouton trouvé!`, 'success');
+    return { success: true, element: foundBtn };
+  } else {
+    log(`RÉSULTAT ÉTAPE 1: AUCUN bouton trouvé`, 'error');
+    diagAllButtons();
+    return { success: false, element: null };
+  }
+}
+
+// ========== STEP 2: FIND SETTINGS IN MENU ==========
+async function step2_findSettings() {
+  log('========== ÉTAPE 2: BOUTON PARAMÈTRES ==========', 'info');
+
+  // Cherche les menuitems visibles
+  const menuItems = document.querySelectorAll('[role="menuitem"], [role="menu"] button, [data-radix-menu-content] button');
+  log(`${menuItems.length} items de menu trouvés`, 'debug');
+
+  menuItems.forEach((item, i) => {
+    if (item.offsetHeight > 0) {
+      log(`  menu[${i}]: "${item.textContent?.trim()?.substring(0, 40)}"`, 'debug');
+    }
+  });
+
+  // Recherche par texte
+  const searchTexts = ['paramètres', 'settings', 'réglages', 'préférences', 'preferences'];
+  log(`Recherche par texte: ${searchTexts.join(', ')}`, 'debug');
+
+  const settingsBtn = findButtonByText(searchTexts);
+
+  if (settingsBtn) {
+    log(`RÉSULTAT ÉTAPE 2: Bouton Paramètres trouvé: "${settingsBtn.textContent?.trim()}"`, 'success');
+    return { success: true, element: settingsBtn };
+  } else {
+    log(`RÉSULTAT ÉTAPE 2: Bouton Paramètres NON trouvé`, 'error');
+    return { success: false, element: null };
+  }
+}
+
+// ========== STEP 3: FIND PERSONALIZATION TAB ==========
+async function step3_findPersonalization() {
+  log('========== ÉTAPE 3: ONGLET PERSONNALISATION ==========', 'info');
+
+  // Cherche tous les onglets/tabs
+  const tabs = document.querySelectorAll('[role="tab"], [role="tablist"] button, button[class*="tab"]');
+  log(`${tabs.length} onglets potentiels trouvés`, 'debug');
+
+  tabs.forEach((tab, i) => {
+    log(`  tab[${i}]: "${tab.textContent?.trim()?.substring(0, 40)}"`, 'debug');
+  });
+
+  // Cherche aussi les boutons dans la modale settings
+  const dialog = document.querySelector('[role="dialog"]');
+  if (dialog) {
+    log('Modale/dialog trouvée, boutons dedans:', 'debug');
+    const dialogBtns = dialog.querySelectorAll('button, [role="button"]');
+    dialogBtns.forEach((btn, i) => {
+      if (btn.offsetHeight > 0) {
+        log(`  dialog-btn[${i}]: "${btn.textContent?.trim()?.substring(0, 40)}"`, 'debug');
+      }
+    });
+  }
+
+  const searchTexts = ['personnalisation', 'personalization', 'personnalisé', 'customization'];
+  const personalizationTab = findButtonByText(searchTexts);
+
+  if (personalizationTab) {
+    log(`RÉSULTAT ÉTAPE 3: Onglet trouvé: "${personalizationTab.textContent?.trim()}"`, 'success');
+    return { success: true, element: personalizationTab };
+  } else {
+    log(`RÉSULTAT ÉTAPE 3: Onglet Personnalisation NON trouvé`, 'error');
+    return { success: false, element: null };
+  }
+}
+
+// ========== STEP 4: FIND MEMORY SECTION ==========
+async function step4_findMemorySection() {
+  log('========== ÉTAPE 4: SECTION MÉMOIRE ==========', 'info');
+
+  const searchTexts = ['mémoire', 'memory', 'remplissage', 'filling', 'mémorisé', 'memorized'];
+  log(`Recherche de texte: ${searchTexts.join(', ')}`, 'debug');
+
+  // Cherche dans différents types d'éléments
+  const containers = ['div', 'span', 'h2', 'h3', 'h4', 'p', 'label'];
+
+  for (const tag of containers) {
+    const elements = document.querySelectorAll(tag);
+    for (const el of elements) {
+      const text = el.textContent?.trim().toLowerCase() || '';
+      for (const search of searchTexts) {
+        if (text.includes(search.toLowerCase()) && text.length < 100) {
+          log(`  ✓ Trouvé dans <${tag}>: "${el.textContent?.trim()?.substring(0, 50)}"`, 'success');
+        }
+      }
+    }
+  }
+
+  const memorySection = findByText(searchTexts, 'div, span, h2, h3, h4, label');
+
+  if (memorySection) {
+    log(`RÉSULTAT ÉTAPE 4: Section mémoire trouvée`, 'success');
+    return { success: true, element: memorySection };
+  } else {
+    log(`RÉSULTAT ÉTAPE 4: Section mémoire NON trouvée`, 'error');
+    return { success: false, element: null };
+  }
+}
+
+// ========== STEP 5: FIND MANAGE BUTTON ==========
+async function step5_findManageButton() {
+  log('========== ÉTAPE 5: BOUTON GÉRER ==========', 'info');
+
+  // Sélecteurs spécifiques
+  const selectors = [
+    '[data-testid*="memory"]',
+    '[data-testid*="manage"]',
+    '[data-testid*="gerer"]',
+    'button[aria-label*="memory"]',
+    'button[aria-label*="manage"]',
+  ];
+
+  log('Recherche avec sélecteurs:', 'debug');
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      log(`  ✓ ${sel}: "${el.textContent?.trim()?.substring(0, 40)}"`, 'success');
+    }
+  }
+
+  // Recherche par texte
+  const searchTexts = ['gérer', 'manage', 'voir', 'view', 'afficher', 'show'];
+  log(`Recherche par texte: ${searchTexts.join(', ')}`, 'debug');
+
+  const manageBtn = findButtonByText(searchTexts);
+
+  if (manageBtn) {
+    log(`RÉSULTAT ÉTAPE 5: Bouton Gérer trouvé: "${manageBtn.textContent?.trim()}"`, 'success');
+    return { success: true, element: manageBtn };
+  }
+
+  // Fallback: cherche un bouton près de la section mémoire
+  log('Fallback: boutons près de "Mémoire"/"Memory":', 'debug');
+  const allButtons = [...document.querySelectorAll('button')];
+  const memoryBtn = allButtons.find(b => {
+    const parent = b.closest('div');
+    const parentText = parent?.textContent?.toLowerCase() || '';
+    return parentText.includes('mémoire') || parentText.includes('memory') || parentText.includes('remplissage');
+  });
+
+  if (memoryBtn) {
+    log(`  ✓ Bouton trouvé via parent: "${memoryBtn.textContent?.trim()?.substring(0, 40)}"`, 'success');
+    return { success: true, element: memoryBtn };
+  }
+
+  log(`RÉSULTAT ÉTAPE 5: Bouton Gérer NON trouvé`, 'error');
+  return { success: false, element: null };
+}
+
+// ========== STEP 6: EXTRACT FROM MODAL ==========
+async function step6_extractFromModal() {
+  log('========== ÉTAPE 6: EXTRACTION MODALE ==========', 'info');
+
+  const modal = document.querySelector('[role="dialog"]');
+
+  if (!modal) {
+    log('Aucune modale [role="dialog"] trouvée', 'error');
+    return { success: false, memories: [] };
+  }
+
+  log(`Modale trouvée, contenu (100 chars): "${modal.textContent?.substring(0, 100)}"`, 'debug');
+
+  // Analyse de la structure de la modale
+  log('Structure de la modale:', 'debug');
+  const tables = modal.querySelectorAll('table');
+  log(`  - ${tables.length} table(s)`, 'debug');
+
+  const rows = modal.querySelectorAll('tr');
+  log(`  - ${rows.length} tr (lignes)`, 'debug');
+
+  const cells = modal.querySelectorAll('td');
+  log(`  - ${cells.length} td (cellules)`, 'debug');
+
+  const scrollables = modal.querySelectorAll('[class*="overflow"]');
+  log(`  - ${scrollables.length} éléments avec overflow`, 'debug');
+
+  // Essaie d'extraire
+  const memories = extractFromTable(modal);
+  log(`Extraction: ${memories.length} éléments trouvés`, memories.length > 0 ? 'success' : 'warning');
+
+  if (memories.length > 0) {
+    log('Premiers éléments:', 'debug');
+    memories.slice(0, 3).forEach((m, i) => {
+      log(`  [${i}] "${m.text.substring(0, 60)}..."`, 'debug');
+    });
+  }
+
+  return { success: memories.length > 0, memories };
+}
+
+// ========== NAVIGATION (avec diagnostic) ==========
 async function navigateToMemories() {
-  log('Navigation vers les paramètres...', 'info');
-  updateStatus('loading', 'Ouverture des paramètres...');
+  log('🚀 NAVIGATION AUTOMATIQUE AVEC DIAGNOSTIC', 'info');
+  updateStatus('loading', 'Diagnostic en cours...');
 
-  // Step 1: Click on user menu (bottom left avatar/name)
-  const userMenuBtn = document.querySelector('[data-testid="profile-button"]') ||
-                      document.querySelector('button[aria-label*="enu"]') ||
-                      document.querySelector('nav button:last-child') ||
-                      // Look for the user name button at bottom of sidebar
-                      [...document.querySelectorAll('button')].find(b =>
-                        b.textContent?.includes('@') ||
-                        b.querySelector('img[alt]')
-                      );
+  // ÉTAPE 1
+  const step1 = await step1_findUserMenu();
+  if (!step1.success) {
+    return { success: false, error: 'Étape 1 échouée: Menu utilisateur non trouvé. Voir console.' };
+  }
 
-  if (userMenuBtn) {
-    log('Menu utilisateur trouvé', 'success');
-    userMenuBtn.click();
+  log('Clic sur menu utilisateur...', 'info');
+  step1.element.click();
+  await wait(800);
+
+  // ÉTAPE 2
+  const step2 = await step2_findSettings();
+  if (!step2.success) {
+    return { success: false, error: 'Étape 2 échouée: Bouton Paramètres non trouvé. Voir console.' };
+  }
+
+  log('Clic sur Paramètres...', 'info');
+  step2.element.click();
+  await wait(1200);
+
+  // ÉTAPE 3
+  const step3 = await step3_findPersonalization();
+  if (!step3.success) {
+    log('Étape 3: Personnalisation non trouvé, on continue...', 'warning');
+  } else {
+    log('Clic sur Personnalisation...', 'info');
+    step3.element.click();
+    await wait(800);
+  }
+
+  // ÉTAPE 4
+  const step4 = await step4_findMemorySection();
+  if (step4.success) {
+    step4.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     await wait(500);
   }
 
-  // Step 2: Click on "Paramètres" / "Settings"
-  await wait(300);
-  const settingsBtn = findButtonByText(['paramètres', 'settings']);
-
-  if (settingsBtn) {
-    log('Bouton Paramètres trouvé', 'success');
-    settingsBtn.click();
-    await wait(1000);
-  } else {
-    // Try direct navigation
-    log('Navigation directe vers settings...', 'warning');
-    window.location.hash = '#settings';
-    await wait(1500);
+  // ÉTAPE 5
+  const step5 = await step5_findManageButton();
+  if (!step5.success) {
+    return { success: false, error: 'Étape 5 échouée: Bouton Gérer non trouvé. Voir console.' };
   }
 
-  // Step 3: Click on "Personnalisation" / "Personalization" tab
-  updateStatus('loading', 'Navigation vers Personnalisation...');
-  await wait(500);
-
-  const personalizationTab = findButtonByText(['personnalisation', 'personalization']);
-
-  if (personalizationTab) {
-    log('Onglet Personnalisation trouvé', 'success');
-    personalizationTab.click();
-    await wait(1000);
-  }
-
-  // Step 4: Scroll to find Memory section and click "Gérer" / "Manage"
-  updateStatus('loading', 'Recherche section Mémoire...');
-
-  // Find the settings content area
-  const settingsContent = document.querySelector('[class*="overflow-y-auto"]') ||
-                          document.querySelector('main') ||
-                          document.body;
-
-  // Scroll to find memory section
-  let found = false;
-  for (let i = 0; i < 15; i++) {
-    // Look for memory indicators: "Remplissage" or "Memory" or "Mémoire"
-    const memorySection = findByText(['remplissage', 'mémoire', 'memory'], 'div, span, h2, h3');
-
-    if (memorySection) {
-      log('Section Mémoire trouvée', 'success');
-      memorySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await wait(500);
-      found = true;
-      break;
-    }
-
-    settingsContent.scrollTop += 300;
-    await wait(300);
-  }
-
-  // Step 5: Find and click the manage button (might be "Gérer" or icon button)
-  updateStatus('loading', 'Ouverture des éléments mémorisés...');
-  await wait(500);
-
-  // The manage button might be near "Remplissage" text
-  const manageBtn = findButtonByText(['gérer', 'manage', 'voir', 'view']) ||
-                    // Or look for a button in the memory section area
-                    document.querySelector('[data-testid*="memory"]') ||
-                    document.querySelector('[data-testid*="manage"]');
-
-  if (!manageBtn) {
-    // Try to find any button that could open memory modal
-    const allButtons = [...document.querySelectorAll('button')];
-    const memoryBtn = allButtons.find(b => {
-      const parent = b.closest('div');
-      return parent?.textContent?.includes('Remplissage') ||
-             parent?.textContent?.includes('Mémoire') ||
-             parent?.textContent?.includes('Memory');
-    });
-
-    if (memoryBtn) {
-      log('Bouton mémoire trouvé (via parent)', 'success');
-      memoryBtn.click();
-      await wait(1500);
-      return { success: true };
-    }
-
-    log('Bouton Gérer non trouvé', 'error');
-    return { success: false, error: 'Bouton Gérer non trouvé. Ouvrez manuellement Settings > Personnalisation > Mémoire > Gérer' };
-  }
-
-  log('Bouton Gérer trouvé', 'success');
-  manageBtn.click();
+  log('Clic sur Gérer...', 'info');
+  step5.element.click();
   await wait(1500);
 
   return { success: true };
@@ -170,14 +411,12 @@ async function extractMemories() {
   log('Extraction des éléments mémorisés...', 'info');
   updateStatus('loading', 'Extraction en cours...');
 
-  // Find the modal - "Éléments mémorisés" modal
   const modal = await waitFor('[role="dialog"]', 5000);
 
   if (!modal) {
     return { success: false, error: 'Modale non trouvée', memories: [] };
   }
 
-  // Verify it's the memories modal
   const modalText = modal.textContent || '';
   const isMemoryModal = modalText.includes('mémorisés') ||
                         modalText.includes('Remplissage') ||
@@ -191,8 +430,6 @@ async function extractMemories() {
 
   log('Modale "Éléments mémorisés" détectée', 'success');
 
-  // The memories are in a TABLE structure
-  // Find the scrollable container and the table
   const scrollContainer = modal.querySelector('[class*="overflow-y-auto"]') ||
                           modal.querySelector('table')?.parentElement ||
                           findScrollContainer(modal);
@@ -206,7 +443,6 @@ async function extractMemories() {
   while (iteration < maxIterations && noNewCount < 4) {
     iteration++;
 
-    // Extract from TABLE rows
     const memories = extractFromTable(modal);
 
     let newCount = 0;
@@ -226,7 +462,6 @@ async function extractMemories() {
       noNewCount++;
     }
 
-    // Scroll for more
     if (scrollContainer) {
       const before = scrollContainer.scrollTop;
       scrollContainer.scrollTop += 400;
@@ -254,15 +489,12 @@ async function extractMemories() {
 function extractFromTable(container) {
   const memories = [];
 
-  // Method 1: Look for table rows
   const tableRows = container.querySelectorAll('tr');
 
   for (const row of tableRows) {
-    // Get the text cell (first td usually)
     const textCell = row.querySelector('td');
     if (!textCell) continue;
 
-    // The actual text is in a div with whitespace-pre-wrap
     const textDiv = textCell.querySelector('[class*="whitespace-pre-wrap"]') ||
                     textCell.querySelector('[class*="py-2"]') ||
                     textCell.querySelector('div');
@@ -278,14 +510,12 @@ function extractFromTable(container) {
     }
   }
 
-  // Method 2: If no table found, look for div structure
   if (memories.length === 0) {
     const divs = container.querySelectorAll('[class*="whitespace-pre-wrap"], [class*="py-2"]');
 
     for (const div of divs) {
       const text = div.textContent?.trim();
       if (text && text.length >= 10 && !isSystemText(text)) {
-        // Check it's not a container
         if (div.querySelectorAll('div').length < 3) {
           memories.push({
             text: text,
@@ -334,6 +564,31 @@ function isSystemText(text) {
   return false;
 }
 
+// ========== DIAGNOSTIC ONLY (sans clic) ==========
+async function runDiagnosticOnly() {
+  log('🔍 MODE DIAGNOSTIC SEUL (sans clic)', 'info');
+  log('Analyse de la page actuelle...', 'info');
+
+  await step1_findUserMenu();
+
+  // Si un menu est ouvert, analyse aussi les étapes suivantes
+  const menuOpen = document.querySelector('[role="menu"]');
+  if (menuOpen) {
+    await step2_findSettings();
+  }
+
+  const dialogOpen = document.querySelector('[role="dialog"]');
+  if (dialogOpen) {
+    await step3_findPersonalization();
+    await step4_findMemorySection();
+    await step5_findManageButton();
+    await step6_extractFromModal();
+  }
+
+  log('=== FIN DU DIAGNOSTIC ===', 'info');
+  return { diagnostic: true };
+}
+
 // ========== MAIN AUTO EXTRACT ==========
 async function autoExtract() {
   if (isExtracting) {
@@ -343,7 +598,6 @@ async function autoExtract() {
   isExtracting = true;
 
   try {
-    // Check if memories modal is already open
     let modal = document.querySelector('[role="dialog"]');
     let isMemoryModal = modal && (
       modal.textContent?.includes('mémorisés') ||
@@ -359,7 +613,6 @@ async function autoExtract() {
       }
     }
 
-    // Extract
     const result = await extractMemories();
 
     chrome.runtime.sendMessage({
@@ -394,8 +647,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Nouveau: diagnostic seul
+  if (request.action === 'diagnostic') {
+    sendResponse({ started: true });
+    runDiagnosticOnly();
+    return true;
+  }
+
   return false;
 });
 
 // ========== INIT ==========
-log('Memory Extractor v3.2 chargé', 'info');
+log('🔧 Memory Extractor v3.3 DIAGNOSTIC chargé', 'info');
+log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
+log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
+log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
+log('  - Tous les boutons: diagAllButtons()', 'debug');
+
+// Expose pour debug console
+window.__memoryExtractor = {
+  step1: step1_findUserMenu,
+  step2: step2_findSettings,
+  step3: step3_findPersonalization,
+  step4: step4_findMemorySection,
+  step5: step5_findManageButton,
+  step6: step6_extractFromModal,
+  diagAllButtons,
+  runDiagnosticOnly
+};
