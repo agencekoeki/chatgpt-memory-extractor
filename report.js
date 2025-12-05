@@ -1,10 +1,9 @@
-// ChatGPT Memory Extractor - Report Page v2.0
-// With progressive reveal animations
+// ChatGPT Memory Extractor - Report Page v3.0
+// Persona E-E-A-T Display with progressive reveal
 
 // ========== STATE ==========
 let analysisResults = null;
 let memories = [];
-let isLive = false;
 
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', async () => {
@@ -41,10 +40,8 @@ async function loadData() {
     memories = await chrome.runtime.sendMessage({ action: 'getMemories' }) || [];
 
     if (analysisResults && analysisResults.success) {
-      // Data exists, reveal everything
       revealAllData(analysisResults, memories);
     } else if (memories.length > 0) {
-      // Memories exist but no analysis - show memories count
       document.getElementById('totalMemories').textContent = memories.length;
       document.getElementById('stat-memories').classList.add('reveal');
     }
@@ -70,38 +67,35 @@ function listenForUpdates() {
 
 // ========== PROGRESS HANDLER ==========
 function handleProgress(data) {
-  isLive = true;
   const { stage, progress, message } = data;
 
-  // Trigger light trace effect
   triggerLightTrace();
 
-  // Update agent indicators
   switch (stage) {
-    case 'labeling':
-      setAgentState('librarian', 'loading', `Labélisation: ${Math.round(progress)}%`);
-      setNavState('memories', 'loading');
+    case 'extracting':
+      setAgentState('extractor', 'loading', `Extraction E-E-A-T: ${Math.round(progress)}%`);
+      setNavState('extractions', 'loading');
       break;
 
     case 'statistics':
-      setAgentState('librarian', 'complete', 'Labélisation terminée');
-      setAgentState('statistician', 'loading', 'Calcul des statistiques...');
-      setNavState('memories', 'complete');
+      setAgentState('extractor', 'complete', 'Extraction terminee');
+      setAgentState('statistician', 'loading', 'Agregation des donnees...');
+      setNavState('extractions', 'complete');
       setNavState('stats', 'loading');
       break;
 
-    case 'profiling':
-      setAgentState('statistician', 'complete', 'Statistiques calculées');
-      setAgentState('profiler', 'loading', 'Rédaction du portrait...');
+    case 'architecting':
+      setAgentState('statistician', 'complete', 'Statistiques calculees');
+      setAgentState('architect', 'loading', 'Construction du masque...');
       setNavState('stats', 'complete');
-      setNavState('profile', 'loading');
+      setNavState('persona', 'loading');
       break;
 
-    case 'insights':
-      setAgentState('profiler', 'complete', 'Portrait terminé');
-      setAgentState('detective', 'loading', 'Recherche de patterns...');
-      setNavState('profile', 'complete');
-      setNavState('insights', 'loading');
+    case 'chartering':
+      setAgentState('architect', 'complete', 'Masque construit');
+      setAgentState('charterer', 'loading', 'Redaction de la charte...');
+      setNavState('persona', 'complete');
+      setNavState('charter', 'loading');
       break;
   }
 }
@@ -113,30 +107,26 @@ function handleComplete(results) {
     return;
   }
 
-  // Final light trace
   triggerLightTrace();
 
-  // Mark all agents complete
-  setAgentState('librarian', 'complete', 'Labélisation terminée');
-  setAgentState('statistician', 'complete', 'Statistiques calculées');
-  setAgentState('profiler', 'complete', 'Portrait terminé');
-  setAgentState('detective', 'complete', 'Analyse terminée');
+  setAgentState('extractor', 'complete', 'Extraction terminee');
+  setAgentState('statistician', 'complete', 'Statistiques calculees');
+  setAgentState('architect', 'complete', 'Masque construit');
+  setAgentState('charterer', 'complete', 'Charte terminee');
 
-  // Mark all nav items complete
-  setNavState('memories', 'complete');
+  setNavState('extractions', 'complete');
   setNavState('stats', 'complete');
-  setNavState('profile', 'complete');
-  setNavState('insights', 'complete');
+  setNavState('persona', 'complete');
+  setNavState('charter', 'complete');
 
-  // Reveal all data with staggered animations
   revealAllData(results, memories);
 }
 
 // ========== REVEAL DATA ==========
 function revealAllData(results, memories) {
   // Update header
-  if (results.timestamp) {
-    const date = new Date(results.timestamp);
+  if (results.persona?.metadata?.generatedAt) {
+    const date = new Date(results.persona.metadata.generatedAt);
     document.getElementById('analysisDate').textContent = date.toLocaleDateString('fr-FR');
     document.getElementById('analysisTime').textContent = `Analyse en ${Math.round((results.totalTime || 0) / 1000)}s`;
   }
@@ -148,161 +138,392 @@ function revealAllData(results, memories) {
   }, 200);
 
   setTimeout(() => {
-    document.getElementById('totalLabels').textContent = results.statistics?.topLabels?.length || '—';
-    document.getElementById('stat-labels').classList.add('reveal');
+    const catCount = results.statistics?.categoryDistribution?.length || 5;
+    document.getElementById('totalCategories').textContent = catCount;
+    document.getElementById('stat-categories').classList.add('reveal');
   }, 400);
 
-  // Reveal profile
+  // Reveal persona
   setTimeout(() => {
-    renderProfile(results.profile);
-    revealCard('card-profile');
-    setAgentState('profiler', 'complete', 'Portrait terminé');
+    renderPersona(results.persona);
+    revealCard('card-persona');
+    setAgentState('architect', 'complete', 'Masque construit');
   }, 600);
 
-  // Reveal insights
+  // Reveal charter
   setTimeout(() => {
-    renderInsights(results.insights);
-    revealCard('card-insights');
-    setAgentState('detective', 'complete', 'Analyse terminée');
+    renderCharter(results.persona?.writingCharter);
+    revealCard('card-charter');
+    setAgentState('charterer', 'complete', 'Charte terminee');
   }, 1000);
 
   // Reveal stats
   setTimeout(() => {
     renderStats(results.statistics);
-    setAgentState('statistician', 'complete', 'Statistiques calculées');
+    setAgentState('statistician', 'complete', 'Statistiques calculees');
   }, 1400);
 
-  // Reveal memories
+  // Reveal extractions
   setTimeout(() => {
-    renderMemories(memories, results.labels);
-    revealCard('card-memories');
-    setAgentState('librarian', 'complete', 'Labélisation terminée');
+    renderExtractions(results.extractions);
+    revealCard('card-extractions');
+    setAgentState('extractor', 'complete', 'Extraction terminee');
   }, 1800);
 }
 
-// ========== RENDER FUNCTIONS ==========
-function renderProfile(profile) {
-  const container = document.getElementById('profileContent');
+// ========== RENDER PERSONA ==========
+function renderPersona(persona) {
+  const container = document.getElementById('personaContent');
 
-  if (!profile) {
-    container.innerHTML = '<p style="color: var(--text-muted);">Aucun portrait disponible.</p>';
+  if (!persona || !persona.mask) {
+    container.innerHTML = '<p style="color: var(--text-muted);">Aucun persona genere.</p>';
     return;
   }
 
-  let html = profile
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>');
+  const mask = persona.mask;
+  const backstory = persona.backstory;
+  const editorial = persona.editorial;
 
-  html = '<p>' + html + '</p>';
+  const initials = (mask.profile?.firstName?.[0] || '?') + (mask.profile?.lastName?.[0] || '?');
+
+  let html = `
+    <div class="persona-header">
+      <div class="persona-avatar">${initials}</div>
+      <div class="persona-info">
+        <h2>${escapeHtml(mask.profile?.firstName || '')} ${escapeHtml(mask.profile?.lastName || '')}</h2>
+        <span class="persona-type">${escapeHtml(mask.type || 'expert')}</span>
+        <div class="persona-meta">
+          ${mask.profile?.ageRange || ''} ans | ${escapeHtml(mask.profile?.location || '')} | ${escapeHtml(mask.expertiseLevel || '')}
+        </div>
+      </div>
+    </div>
+
+    <div class="persona-grid">
+      <div class="persona-block full">
+        <h4>Parcours</h4>
+        <p>${escapeHtml(mask.profile?.background || '')}</p>
+      </div>
+
+      <div class="persona-block">
+        <h4>Situation actuelle</h4>
+        <p>${escapeHtml(mask.profile?.currentSituation || '')}</p>
+      </div>
+
+      <div class="persona-block">
+        <h4>Mission</h4>
+        <p>${escapeHtml(mask.mission || '')}</p>
+      </div>
+
+      <div class="persona-block full">
+        <h4>Domaines d'expertise</h4>
+        <div class="tag-list">
+          ${(mask.expertiseDomains || []).map(d => `<span class="tag">${escapeHtml(d)}</span>`).join('')}
+        </div>
+      </div>
+
+      <div class="persona-block">
+        <h4>Biais / Angle</h4>
+        <p>${escapeHtml(mask.bias || '')}</p>
+      </div>
+
+      <div class="persona-block">
+        <h4>Valeur unique</h4>
+        <p>${escapeHtml(mask.uniqueValue || '')}</p>
+      </div>
+
+      <div class="persona-block full">
+        <h4>Limites avouees</h4>
+        <div class="tag-list">
+          ${(mask.limits || []).map(l => `<span class="tag warning">${escapeHtml(l)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    ${backstory ? `
+    <div class="card-title" style="margin-top: 32px;">Backstory</div>
+    <div class="backstory-content">
+      ${escapeHtml(backstory.fullText || '')}
+    </div>
+
+    <div class="persona-grid" style="margin-top: 20px;">
+      <div class="persona-block">
+        <h4>Declencheur</h4>
+        <p>${escapeHtml(backstory.trigger || '')}</p>
+      </div>
+      <div class="persona-block">
+        <h4>Experience</h4>
+        <p>${escapeHtml(backstory.experience || '')}</p>
+      </div>
+      <div class="persona-block">
+        <h4>Motivation</h4>
+        <p>${escapeHtml(backstory.motivation || '')}</p>
+      </div>
+      <div class="persona-block">
+        <h4>Vulnerabilite</h4>
+        <p>${escapeHtml(backstory.vulnerability || '')}</p>
+      </div>
+    </div>
+    ` : ''}
+
+    ${editorial ? `
+    <div class="card-title" style="margin-top: 32px;">Ton Editorial</div>
+    <div class="tone-grid">
+      <div class="tone-item">
+        <div class="tone-label">Registre</div>
+        <div class="tone-value">${escapeHtml(editorial.tone?.register || '-')}</div>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Technicite</div>
+        <div class="tone-value">${escapeHtml(editorial.tone?.technicality || '-')}</div>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Chaleur</div>
+        <div class="tone-value">${escapeHtml(editorial.tone?.warmth || '-')}</div>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Assertivite</div>
+        <div class="tone-value">${escapeHtml(editorial.tone?.assertiveness || '-')}</div>
+      </div>
+    </div>
+
+    <div class="persona-block full">
+      <h4>Promesse editoriale</h4>
+      <p>${escapeHtml(editorial.editorialPromise || '')}</p>
+    </div>
+
+    ${editorial.implicitValues?.length ? `
+    <div class="persona-block full">
+      <h4>Valeurs implicites</h4>
+      ${editorial.implicitValues.map(v => `
+        <p><strong>${escapeHtml(v.value || '')}</strong>: ${escapeHtml(v.manifestation || '')}</p>
+      `).join('')}
+    </div>
+    ` : ''}
+    ` : ''}
+  `;
+
   container.innerHTML = html;
 }
 
-function renderInsights(insights) {
-  const container = document.getElementById('insightsContent');
+// ========== RENDER CHARTER ==========
+function renderCharter(charter) {
+  const container = document.getElementById('charterContent');
 
-  if (!insights) {
-    container.innerHTML = '<p style="color: var(--text-muted);">Aucun insight disponible.</p>';
+  if (!charter) {
+    container.innerHTML = '<p style="color: var(--text-muted);">Aucune charte generee.</p>';
     return;
   }
 
-  const sections = insights.split(/^## /gm).filter(Boolean);
-
   let html = '';
-  sections.forEach((section, index) => {
-    const lines = section.trim().split('\n');
-    const title = lines[0];
-    const content = lines.slice(1).join('\n');
 
+  // Allowed patterns
+  if (charter.allowedPatterns?.length) {
+    html += '<div class="card-title">Patterns autorises</div>';
+    charter.allowedPatterns.forEach(p => {
+      html += `
+        <div class="pattern-card allowed">
+          <div class="pattern-header">
+            <span class="pattern-name">${escapeHtml(p.pattern || '')}</span>
+            <span class="pattern-badge allowed">OK</span>
+          </div>
+          <div class="pattern-example">"${escapeHtml(p.example || '')}"</div>
+        </div>
+      `;
+    });
+  }
+
+  // Forbidden patterns
+  if (charter.forbiddenPatterns?.length) {
+    html += '<div class="card-title" style="margin-top: 24px;">Patterns interdits</div>';
+    charter.forbiddenPatterns.forEach(p => {
+      html += `
+        <div class="pattern-card forbidden">
+          <div class="pattern-header">
+            <span class="pattern-name">${escapeHtml(p.pattern || '')}</span>
+            <span class="pattern-badge forbidden">INTERDIT</span>
+          </div>
+          <div class="pattern-reason">Raison: ${escapeHtml(p.reason || '')}</div>
+          ${p.alternative ? `<div class="pattern-alternative">Alternative: ${escapeHtml(p.alternative)}</div>` : ''}
+        </div>
+      `;
+    });
+  }
+
+  // Signals
+  html += '<div class="card-title" style="margin-top: 24px;">Signaux</div>';
+  html += '<div class="signals-grid">';
+
+  // Human signals
+  if (charter.humanSignals) {
     html += `
-      <div class="insight-card" style="animation-delay: ${index * 0.15}s; opacity: 0; animation: fadeInUp 0.5s ease forwards ${index * 0.15}s;">
-        <h3>${escapeHtml(title)}</h3>
-        <p>${content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</p>
+      <div class="signal-block">
+        <h4>Signaux humains</h4>
+        <ul class="signal-list">
+          ${charter.humanSignals.anecdoteType ? `<li><strong>Anecdotes:</strong> ${escapeHtml(charter.humanSignals.anecdoteType)}</li>` : ''}
+          ${charter.humanSignals.opinionStyle ? `<li><strong>Opinions:</strong> ${escapeHtml(charter.humanSignals.opinionStyle)}</li>` : ''}
+          ${(charter.humanSignals.hesitations || []).map(h => `<li>"${escapeHtml(h)}"</li>`).join('')}
+        </ul>
       </div>
     `;
-  });
+  }
 
-  container.innerHTML = html || '<p style="color: var(--text-muted);">Aucun insight trouvé.</p>';
+  // Expert signals
+  if (charter.expertSignals) {
+    html += `
+      <div class="signal-block">
+        <h4>Signaux d'expertise</h4>
+        <ul class="signal-list">
+          ${(charter.expertSignals.precisionMarkers || []).map(m => `<li>${escapeHtml(m)}</li>`).join('')}
+          ${(charter.expertSignals.insiderReferences || []).map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+          ${(charter.expertSignals.nuancePatterns || []).map(n => `<li>${escapeHtml(n)}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+
+  // Examples in/out of tone
+  if (charter.examplesInTone?.length) {
+    html += '<div class="card-title" style="margin-top: 24px;">Exemples dans le ton</div>';
+    charter.examplesInTone.forEach(ex => {
+      html += `<div class="pattern-card allowed"><div class="pattern-example">"${escapeHtml(ex)}"</div></div>`;
+    });
+  }
+
+  if (charter.examplesOutOfTone?.length) {
+    html += '<div class="card-title" style="margin-top: 24px;">Exemples hors ton</div>';
+    charter.examplesOutOfTone.forEach(ex => {
+      html += `
+        <div class="pattern-card forbidden">
+          <div class="pattern-example">"${escapeHtml(ex.phrase || '')}"</div>
+          <div class="pattern-reason">${escapeHtml(ex.reason || '')}</div>
+        </div>
+      `;
+    });
+  }
+
+  // Vocabulary
+  if (charter.vocabulary) {
+    html += '<div class="card-title" style="margin-top: 24px;">Vocabulaire</div>';
+    html += '<div class="signals-grid">';
+
+    if (charter.vocabulary.preferred?.length) {
+      html += `
+        <div class="signal-block">
+          <h4>Mots preferes</h4>
+          <div class="tag-list">
+            ${charter.vocabulary.preferred.map(w => `<span class="tag">${escapeHtml(w)}</span>`).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (charter.vocabulary.avoided?.length) {
+      html += `
+        <div class="signal-block">
+          <h4>Mots a eviter</h4>
+          <div class="tag-list">
+            ${charter.vocabulary.avoided.map(w => `<span class="tag warning">${escapeHtml(w)}</span>`).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
 }
 
+// ========== RENDER STATS ==========
 function renderStats(statistics) {
   if (!statistics) return;
 
-  // Stats grid with reveal
+  // Stats grid
   const grid = document.getElementById('statsGrid');
+  const total = statistics.total || 0;
+  const topCategory = statistics.categoryDistribution?.[0]?.category || '-';
+  const topCategoryCount = statistics.categoryDistribution?.[0]?.count || 0;
+
   grid.innerHTML = `
     <div class="stat-card" style="animation: cardReveal 0.5s ease forwards;">
-      <div class="stat-value">${statistics.totalLabeled || 0}</div>
-      <div class="stat-label">Souvenirs labélisés</div>
+      <div class="stat-value">${total}</div>
+      <div class="stat-label">Extractions E-E-A-T</div>
     </div>
     <div class="stat-card" style="animation: cardReveal 0.5s ease forwards 0.1s;">
-      <div class="stat-value">${Object.keys(statistics.labelFrequency || {}).length}</div>
-      <div class="stat-label">Labels uniques</div>
+      <div class="stat-value">${Object.keys(statistics.tagFrequency || {}).length}</div>
+      <div class="stat-label">Tags uniques</div>
     </div>
     <div class="stat-card" style="animation: cardReveal 0.5s ease forwards 0.2s;">
-      <div class="stat-value">${statistics.topLabels?.[0]?.label || '—'}</div>
-      <div class="stat-label">Label dominant</div>
+      <div class="stat-value" style="text-transform: capitalize;">${topCategory}</div>
+      <div class="stat-label">Categorie dominante</div>
     </div>
   `;
 
-  // Labels chart
-  const chart = document.getElementById('labelsChart');
-  const maxCount = statistics.topLabels?.[0]?.count || 1;
+  // Category bars
+  const chart = document.getElementById('categoriesChart');
+  const maxCount = statistics.categoryDistribution?.[0]?.count || 1;
 
   let chartHtml = '';
-  (statistics.topLabels || []).slice(0, 10).forEach((item, index) => {
+  (statistics.categoryDistribution || []).forEach((item, index) => {
     const width = (item.count / maxCount) * 100;
+    const percent = Math.round((item.count / total) * 100);
     chartHtml += `
-      <div class="label-bar revealed" style="animation-delay: ${index * 0.05}s;">
-        <div class="label-header">
-          <span class="label-name">${escapeHtml(item.label)}</span>
-          <span class="label-count">${item.count} (${item.percent}%)</span>
+      <div class="category-bar" style="animation-delay: ${index * 0.1}s;">
+        <div class="category-header">
+          <span class="category-name">${escapeHtml(item.category)}</span>
+          <span class="category-count">${item.count} (${percent}%)</span>
         </div>
-        <div class="label-track">
-          <div class="label-fill" style="width: ${width}%; transition-delay: ${index * 0.05}s;"></div>
+        <div class="category-track">
+          <div class="category-fill ${item.category}" style="width: ${width}%;"></div>
         </div>
       </div>
     `;
   });
+
+  // Top tags
+  if (statistics.topTags?.length) {
+    chartHtml += '<div class="card-title" style="margin-top: 24px;">Tags frequents</div>';
+    chartHtml += '<div class="tag-list">';
+    statistics.topTags.slice(0, 15).forEach(t => {
+      chartHtml += `<span class="tag">${escapeHtml(t.tag)} (${t.count})</span>`;
+    });
+    chartHtml += '</div>';
+  }
 
   chart.innerHTML = chartHtml || '<p style="color: var(--text-muted);">Aucune statistique.</p>';
 
-  // Reveal the card
-  revealCard('card-labels');
+  revealCard('card-categories');
 }
 
-function renderMemories(memories, labels) {
-  const container = document.getElementById('memoriesList');
+// ========== RENDER EXTRACTIONS ==========
+function renderExtractions(extractions) {
+  const container = document.getElementById('extractionsList');
 
-  if (!memories || memories.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted);">Aucun souvenir.</p>';
+  if (!extractions || extractions.length === 0) {
+    container.innerHTML = '<p style="color: var(--text-muted);">Aucune extraction.</p>';
     return;
   }
 
-  const labelsMap = {};
-  (labels || []).forEach(item => {
-    labelsMap[item.memoryId] = item.labels || [];
-  });
-
   let html = '';
-  memories.slice(0, 50).forEach((memory, index) => {
-    const memLabels = labelsMap[index] || [];
+  extractions.slice(0, 50).forEach((ext, index) => {
     const delay = Math.min(index * 0.03, 1.5);
+    const categories = ext.categories || [];
 
     html += `
       <div class="memory-item revealed" style="animation-delay: ${delay}s;">
-        <div class="memory-text">${escapeHtml(memory.text)}</div>
-        <div class="memory-labels">
-          ${memLabels.map(l => `<span class="memory-label">${escapeHtml(l)}</span>`).join('')}
+        <div class="memory-text">${escapeHtml(ext.text || '')}</div>
+        <div class="memory-meta">
+          ${categories.map(c => `<span class="memory-category ${c}">${c}</span>`).join('')}
+          ${ext.persona_value ? `<span class="memory-value">${escapeHtml(ext.persona_value)}</span>` : ''}
         </div>
       </div>
     `;
   });
 
-  if (memories.length > 50) {
-    html += `<p style="color: var(--text-muted); text-align: center; padding: 20px;">+ ${memories.length - 50} autres souvenirs...</p>`;
+  if (extractions.length > 50) {
+    html += `<p style="color: var(--text-muted); text-align: center; padding: 20px;">+ ${extractions.length - 50} autres extractions...</p>`;
   }
 
   container.innerHTML = html;
@@ -325,7 +546,8 @@ function setAgentState(agentId, state, message) {
   if (state === 'complete') {
     indicator.classList.add('complete');
   }
-  indicator.querySelector('span').textContent = message;
+  const span = indicator.querySelector('span');
+  if (span) span.textContent = message;
 }
 
 function setNavState(navId, state) {
@@ -340,8 +562,9 @@ function setNavState(navId, state) {
 
 function triggerLightTrace() {
   const trace = document.getElementById('lightTrace');
+  if (!trace) return;
   trace.classList.remove('active');
-  void trace.offsetWidth; // Force reflow
+  void trace.offsetWidth;
   trace.classList.add('active');
 }
 
@@ -350,15 +573,17 @@ async function exportJson() {
   try {
     const data = {
       exportDate: new Date().toISOString(),
-      memories,
-      analysis: analysisResults
+      persona: analysisResults?.persona || null,
+      extractions: analysisResults?.extractions || [],
+      statistics: analysisResults?.statistics || {},
+      memoriesCount: memories.length
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `memory-analysis-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `persona-eeat-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {

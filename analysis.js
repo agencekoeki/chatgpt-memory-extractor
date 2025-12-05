@@ -1,5 +1,6 @@
-// ChatGPT Memory Extractor - Analysis Pipeline v1.0
-// The 4 Agents: Librarian, Statistician, Profiler, Detective
+// ChatGPT Memory Extractor - Persona Pipeline v2.0
+// Generates E-E-A-T compliant Author Identity Mask from memories
+// The 4 Agents: Extracteur, Statisticien, Architecte, Rédacteur
 
 import { APIClient } from './api.js';
 
@@ -15,38 +16,49 @@ export class AnalysisPipeline {
     const startTime = Date.now();
     const results = {
       memoriesCount: memories.length,
-      labels: [],
+      extractions: [],
       statistics: {},
-      profile: '',
-      insights: '',
+      persona: null,
       stages: {}
     };
 
     try {
-      // Stage 1: Librarian - Label each memory
-      onProgress('labeling', 0, 'Le Bibliothécaire analyse chaque souvenir...');
-      results.labels = await this.runLibrarian(memories, (done, total) => {
-        onProgress('labeling', (done / total) * 100, `Labélisation: ${done}/${total}`);
+      // Stage 1: Extracteur E-E-A-T - Extract persona-relevant data
+      onProgress('extracting', 0, 'L\'Extracteur analyse chaque souvenir (E-E-A-T)...');
+      results.extractions = await this.runExtractor(memories, (done, total) => {
+        onProgress('extracting', (done / total) * 100, `Extraction: ${done}/${total}`);
       });
-      results.stages.labeling = { done: true, time: Date.now() - startTime };
+      results.stages.extracting = { done: true, time: Date.now() - startTime };
 
-      // Stage 2: Statistician - Aggregate labels
-      onProgress('statistics', 0, 'Le Statisticien calcule les fréquences...');
-      results.statistics = this.runStatistician(results.labels);
+      // Stage 2: Statisticien - Aggregate for persona building
+      onProgress('statistics', 0, 'Le Statisticien agrège les données...');
+      results.statistics = this.runStatistician(results.extractions, memories);
       results.stages.statistics = { done: true, time: Date.now() - startTime };
-      onProgress('statistics', 100, 'Statistiques calculées');
+      onProgress('statistics', 100, 'Agrégation terminée');
 
-      // Stage 3: Profiler - Create portrait
-      onProgress('profiling', 0, 'Le Profileur rédige le portrait...');
-      results.profile = await this.runProfiler(memories, results.labels, results.statistics);
-      results.stages.profiling = { done: true, time: Date.now() - startTime };
-      onProgress('profiling', 100, 'Portrait terminé');
+      // Stage 3: Architecte - Build mask structure
+      onProgress('architecting', 0, 'L\'Architecte construit le masque...');
+      const maskCore = await this.runArchitect(memories, results.extractions, results.statistics);
+      results.stages.architecting = { done: true, time: Date.now() - startTime };
+      onProgress('architecting', 100, 'Structure du masque créée');
 
-      // Stage 4: Detective - Find insights
-      onProgress('insights', 0, 'Le Détective cherche les patterns cachés...');
-      results.insights = await this.runDetective(memories, results.labels, results.statistics);
-      results.stages.insights = { done: true, time: Date.now() - startTime };
-      onProgress('insights', 100, 'Analyse terminée');
+      // Stage 4: Rédacteur - Create writing charter
+      onProgress('chartering', 0, 'Le Rédacteur crée la charte d\'écriture...');
+      const writingCharter = await this.runCharterer(memories, results.extractions, maskCore);
+      results.stages.chartering = { done: true, time: Date.now() - startTime };
+      onProgress('chartering', 100, 'Charte d\'écriture terminée');
+
+      // Combine into final persona
+      results.persona = {
+        ...maskCore,
+        writingCharter,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          memoriesAnalyzed: memories.length,
+          provider: this.provider,
+          version: '2.0'
+        }
+      };
 
       results.totalTime = Date.now() - startTime;
       results.success = true;
@@ -59,235 +71,440 @@ export class AnalysisPipeline {
     return results;
   }
 
-  // ========== AGENT 1: LIBRARIAN ==========
-  async runLibrarian(memories, onProgress) {
-    const labelerModel = APIClient.getModelForTask('labeler', this.provider);
-    const labels = [];
+  // ========== AGENT 1: EXTRACTEUR E-E-A-T ==========
+  async runExtractor(memories, onProgress) {
+    const extractorModel = APIClient.getModelForTask('labeler', this.provider);
+    const extractions = [];
 
-    const TAXONOMY = {
-      domains: ['tech', 'business', 'creative', 'personal', 'communication'],
-      types: ['preference', 'project', 'skill', 'tool', 'value', 'context', 'fact'],
-      specific: ['seo', 'wordpress', 'ai', 'dev', 'design', 'writing', 'video', 'marketing', 'analytics', 'automation']
+    const EEAT_TAXONOMY = {
+      expertise: ['domaine', 'compétence', 'outil', 'méthodologie', 'certification', 'formation'],
+      experience: ['projet_réalisé', 'années_pratique', 'cas_concret', 'erreur_passée', 'leçon_apprise'],
+      authority: ['rôle', 'responsabilité', 'reconnaissance', 'publication', 'enseignement'],
+      trust: ['valeur', 'éthique', 'limite_avouée', 'transparence', 'opinion_honnête'],
+      voice: ['ton', 'registre', 'expression_favorite', 'humour', 'tic_langage']
     };
 
-    const prompt = (memory) => `Tu es bibliothécaire. On te donne UN souvenir de ChatGPT sur une personne.
-Ton SEUL travail: retourner 1-4 labels pertinents.
+    const prompt = (memory) => `Tu extrais des données pour construire un PERSONA AUTEUR crédible (E-E-A-T).
 
-TAXONOMIE:
-- DOMAINES: ${TAXONOMY.domains.join(', ')}
-- TYPES: ${TAXONOMY.types.join(', ')}
-- SPÉCIFIQUES: ${TAXONOMY.specific.join(', ')}
+TAXONOMIE E-E-A-T:
+- EXPERTISE: ${EEAT_TAXONOMY.expertise.join(', ')}
+- EXPERIENCE: ${EEAT_TAXONOMY.experience.join(', ')}
+- AUTHORITY: ${EEAT_TAXONOMY.authority.join(', ')}
+- TRUST: ${EEAT_TAXONOMY.trust.join(', ')}
+- VOICE: ${EEAT_TAXONOMY.voice.join(', ')}
 
-SOUVENIR:
+SOUVENIR À ANALYSER:
 "${memory.text}"
 
-Réponds UNIQUEMENT en JSON valide: {"labels": ["label1", "label2"]}
-Pas d'explication. Pas de markdown. Juste le JSON.`;
+EXTRAIS en JSON:
+{
+  "categories": ["expertise|experience|authority|trust|voice"],
+  "tags": ["tag1", "tag2"],
+  "extracted_fact": "Le fait brut extrait",
+  "persona_value": "Comment utiliser ça pour le persona",
+  "confidence": 0.8
+}
 
-    // Process in batches
+JSON uniquement, pas de markdown.`;
+
     for (let i = 0; i < memories.length; i++) {
       try {
         const response = await this.api.call(prompt(memories[i]), {
           provider: this.provider,
-          model: labelerModel,
-          maxTokens: 100
+          model: extractorModel,
+          maxTokens: 200
         });
 
-        // Parse JSON response
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          labels.push({
+          extractions.push({
             memoryId: i,
-            text: memories[i].text.substring(0, 100),
-            labels: parsed.labels || []
+            text: memories[i].text,
+            ...parsed
           });
         } else {
-          labels.push({ memoryId: i, text: memories[i].text.substring(0, 100), labels: [] });
+          extractions.push({
+            memoryId: i,
+            text: memories[i].text,
+            categories: [],
+            tags: [],
+            extracted_fact: memories[i].text,
+            persona_value: '',
+            confidence: 0.3
+          });
         }
       } catch (e) {
-        labels.push({ memoryId: i, text: memories[i].text.substring(0, 100), labels: [], error: e.message });
+        extractions.push({
+          memoryId: i,
+          text: memories[i].text,
+          categories: [],
+          tags: [],
+          error: e.message,
+          confidence: 0
+        });
       }
 
       onProgress(i + 1, memories.length);
-
-      // Rate limiting
-      if (i < memories.length - 1) {
-        await this.delay(100);
-      }
+      if (i < memories.length - 1) await this.delay(100);
     }
 
-    return labels;
+    return extractions;
   }
 
-  // ========== AGENT 2: STATISTICIAN ==========
-  runStatistician(labels) {
+  // ========== AGENT 2: STATISTICIEN ==========
+  runStatistician(extractions, memories) {
     const stats = {
-      totalLabeled: labels.length,
-      labelFrequency: {},
-      coOccurrences: {},
-      clusters: [],
-      topLabels: []
+      total: extractions.length,
+      byCategory: { expertise: [], experience: [], authority: [], trust: [], voice: [] },
+      tagFrequency: {},
+      expertiseDomains: [],
+      experienceMarkers: [],
+      voicePatterns: [],
+      trustSignals: [],
+      rawFacts: []
     };
 
-    // Count label frequencies
-    labels.forEach(item => {
-      (item.labels || []).forEach(label => {
-        stats.labelFrequency[label] = (stats.labelFrequency[label] || 0) + 1;
-      });
-    });
-
-    // Calculate co-occurrences
-    labels.forEach(item => {
-      const itemLabels = item.labels || [];
-      for (let i = 0; i < itemLabels.length; i++) {
-        for (let j = i + 1; j < itemLabels.length; j++) {
-          const pair = [itemLabels[i], itemLabels[j]].sort().join(' + ');
-          stats.coOccurrences[pair] = (stats.coOccurrences[pair] || 0) + 1;
+    // Categorize extractions
+    extractions.forEach(ext => {
+      (ext.categories || []).forEach(cat => {
+        if (stats.byCategory[cat]) {
+          stats.byCategory[cat].push(ext);
         }
+      });
+
+      (ext.tags || []).forEach(tag => {
+        stats.tagFrequency[tag] = (stats.tagFrequency[tag] || 0) + 1;
+      });
+
+      if (ext.extracted_fact && ext.confidence > 0.5) {
+        stats.rawFacts.push({
+          fact: ext.extracted_fact,
+          value: ext.persona_value,
+          categories: ext.categories,
+          confidence: ext.confidence
+        });
       }
     });
 
-    // Top labels
-    stats.topLabels = Object.entries(stats.labelFrequency)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 15)
-      .map(([label, count]) => ({ label, count, percent: Math.round(count / labels.length * 100) }));
+    // Top items per category
+    stats.expertiseDomains = stats.byCategory.expertise
+      .filter(e => e.confidence > 0.6)
+      .map(e => ({ fact: e.extracted_fact, value: e.persona_value }))
+      .slice(0, 20);
 
-    // Top co-occurrences
-    stats.topCoOccurrences = Object.entries(stats.coOccurrences)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([pair, count]) => ({ pair, count }));
+    stats.experienceMarkers = stats.byCategory.experience
+      .filter(e => e.confidence > 0.6)
+      .map(e => ({ fact: e.extracted_fact, value: e.persona_value }))
+      .slice(0, 15);
 
-    // Simple clustering by dominant label
-    const clusters = {};
-    labels.forEach(item => {
-      const dominant = (item.labels || [])[0];
-      if (dominant) {
-        if (!clusters[dominant]) clusters[dominant] = [];
-        clusters[dominant].push(item);
-      }
-    });
-    stats.clusters = Object.entries(clusters)
-      .map(([name, items]) => ({ name, count: items.length, items: items.slice(0, 5) }))
+    stats.voicePatterns = stats.byCategory.voice
+      .filter(e => e.confidence > 0.5)
+      .map(e => ({ fact: e.extracted_fact, value: e.persona_value }))
+      .slice(0, 10);
+
+    stats.trustSignals = stats.byCategory.trust
+      .filter(e => e.confidence > 0.5)
+      .map(e => ({ fact: e.extracted_fact, value: e.persona_value }))
+      .slice(0, 10);
+
+    // Top tags
+    stats.topTags = Object.entries(stats.tagFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([tag, count]) => ({ tag, count }));
+
+    // Category distribution
+    stats.categoryDistribution = Object.entries(stats.byCategory)
+      .map(([cat, items]) => ({ category: cat, count: items.length }))
       .sort((a, b) => b.count - a.count);
 
     return stats;
   }
 
-  // ========== AGENT 3: PROFILER ==========
-  async runProfiler(memories, labels, statistics) {
-    const profilerModel = APIClient.getModelForTask('profiler', this.provider);
+  // ========== AGENT 3: ARCHITECTE (MASK BUILDER) ==========
+  async runArchitect(memories, extractions, statistics) {
+    const architectModel = APIClient.getModelForTask('profiler', this.provider);
 
-    const memoriesSample = memories
-      .slice(0, 50)
-      .map((m, i) => `[${i + 1}] ${m.text}`)
-      .join('\n\n');
+    const memoriesSample = memories.slice(0, 60).map((m, i) => `[${i + 1}] ${m.text}`).join('\n');
 
-    const statsStr = `
-Labels les plus fréquents:
-${statistics.topLabels.map(l => `- ${l.label}: ${l.count} (${l.percent}%)`).join('\n')}
+    const factsStr = statistics.rawFacts
+      .slice(0, 30)
+      .map(f => `- ${f.fact} → ${f.value}`)
+      .join('\n');
 
-Co-occurrences fréquentes:
-${statistics.topCoOccurrences?.map(c => `- ${c.pair}: ${c.count}`).join('\n') || 'N/A'}
-`;
+    const expertiseStr = statistics.expertiseDomains
+      .map(e => `- ${e.fact}`)
+      .join('\n');
 
-    const prompt = `Tu es profileur cognitif expert. Tu analyses les souvenirs qu'une IA a gardés sur une personne pour dresser son portrait.
+    const experienceStr = statistics.experienceMarkers
+      .map(e => `- ${e.fact}`)
+      .join('\n');
 
-DONNÉES D'ENTRÉE:
-- ${memories.length} souvenirs au total
-- Échantillon des 50 premiers souvenirs ci-dessous
-- Statistiques de labélisation
+    const trustStr = statistics.trustSignals
+      .map(t => `- ${t.fact}`)
+      .join('\n');
 
-SOUVENIRS:
+    const prompt = `Tu es ARCHITECTE DE PERSONA. Tu construis une identité d'auteur crédible à partir de souvenirs réels.
+
+## DONNÉES D'ENTRÉE
+
+### Souvenirs bruts (${memories.length} au total):
 ${memoriesSample}
 
-STATISTIQUES:
-${statsStr}
+### Expertise détectée:
+${expertiseStr || 'Non détectée'}
 
-TON TRAVAIL: Rédige un PORTRAIT DÉTAILLÉ de cette personne.
+### Expérience détectée:
+${experienceStr || 'Non détectée'}
 
-STRUCTURE OBLIGATOIRE:
-## Identité Professionnelle
-[Qui est cette personne dans son travail? Quel est son métier, son domaine?]
+### Signaux de confiance:
+${trustStr || 'Non détectés'}
 
-## Compétences & Outils
-[Quelles compétences maîtrise-t-elle? Quels outils utilise-t-elle? Qu'apprend-elle?]
+### Tags fréquents:
+${statistics.topTags?.slice(0, 15).map(t => t.tag).join(', ') || 'N/A'}
 
-## Valeurs & Convictions
-[Qu'est-ce qui compte pour elle? Quelles sont ses opinions fortes?]
+## TON TRAVAIL
 
-## Style de Pensée
-[Comment réfléchit-elle? Analytique, créatif, pragmatique?]
-
-## Projets Actifs
-[Sur quoi travaille-t-elle actuellement?]
-
-## Préférences de Communication
-[Comment préfère-t-elle qu'on lui parle? En quelle langue? Quel ton?]
+Génère un JSON de persona CRÉDIBLE. L'objectif: créer une identité d'auteur qui peut écrire du contenu E-E-A-T compliant.
 
 RÈGLES:
-- Sois SPÉCIFIQUE, cite des exemples tirés des souvenirs
-- Écris à la 3ème personne
-- 500-800 mots maximum
-- Pas de bullet points dans les paragraphes, du texte fluide`;
+- Le persona doit être COHÉRENT avec les souvenirs
+- Les vulnérabilités sont OBLIGATOIRES (ça humanise)
+- Le bias doit être une VRAIE opinion défendable
+- La backstory doit expliquer POURQUOI cette personne parle de ces sujets
 
-    return await this.api.call(prompt, {
+## OUTPUT JSON (pas de markdown, juste le JSON):
+
+{
+  "mask": {
+    "type": "expert-independant|passionne|professionnel|petit-media|collectif",
+    "profile": {
+      "firstName": "Prénom authentique",
+      "lastName": "Nom crédible",
+      "ageRange": "35-45",
+      "location": "Région/Ville cohérente",
+      "background": "Parcours en 3-4 phrases basé sur les souvenirs",
+      "currentSituation": "Ce qu'il fait aujourd'hui"
+    },
+    "expertiseLevel": "amateur-eclaire|praticien|expert",
+    "expertiseDomains": ["domaine1", "domaine2"],
+    "bias": "Opinion/angle défendu (déduit des souvenirs)",
+    "mission": "Pourquoi cette personne partage son savoir",
+    "limits": ["Ce qu'elle ne prétend pas savoir 1", "Limite 2"],
+    "uniqueValue": "Ce qu'elle apporte que d'autres n'apportent pas"
+  },
+  "backstory": {
+    "trigger": "L'événement déclencheur qui a lancé son intérêt",
+    "experience": "Ce qui a construit son expertise (projets, années, cas)",
+    "motivation": "Pourquoi partager maintenant",
+    "source": "Comment elle collecte ses informations",
+    "vulnerability": "Erreur passée ou limite avouée (OBLIGATOIRE)",
+    "fullText": "Backstory complète rédigée (150-200 mots)"
+  },
+  "editorial": {
+    "angle": "expert-technique|pedagogue|passionne|pragmatique|conseiller",
+    "tone": {
+      "register": "formel|conversationnel|entre-deux",
+      "technicality": "technique|accessible|variable",
+      "warmth": "distant|neutre|chaleureux",
+      "assertiveness": "affirmatif|nuance|prudent"
+    },
+    "implicitValues": [
+      {"value": "Valeur 1", "manifestation": "Comment elle se manifeste"},
+      {"value": "Valeur 2", "manifestation": "Comment elle se manifeste"}
+    ],
+    "editorialPromise": "Ce que le lecteur trouve ici qu'il ne trouve pas ailleurs"
+  }
+}`;
+
+    const response = await this.api.call(prompt, {
       provider: this.provider,
-      model: profilerModel,
-      maxTokens: 2000
+      model: architectModel,
+      maxTokens: 3000
     });
+
+    // Parse JSON from response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.error('Failed to parse architect response:', e);
+        return this.getDefaultMask();
+      }
+    }
+    return this.getDefaultMask();
   }
 
-  // ========== AGENT 4: DETECTIVE ==========
-  async runDetective(memories, labels, statistics) {
-    const detectiveModel = APIClient.getModelForTask('detective', this.provider);
+  // ========== AGENT 4: RÉDACTEUR (WRITING CHARTER) ==========
+  async runCharterer(memories, extractions, maskCore) {
+    const chartererModel = APIClient.getModelForTask('detective', this.provider);
 
-    const memoriesSample = memories
-      .slice(0, 40)
-      .map((m, i) => `[${i + 1}] ${m.text}`)
-      .join('\n\n');
+    const voiceExamples = extractions
+      .filter(e => (e.categories || []).includes('voice'))
+      .slice(0, 10)
+      .map(e => e.text)
+      .join('\n---\n');
 
-    const prompt = `Tu es détective cognitif. Tu cherches ce qui est CACHÉ, SURPRENANT, ou CONTRADICTOIRE dans les souvenirs qu'une IA garde sur une personne.
+    const memoriesSample = memories.slice(0, 30).map(m => m.text).join('\n---\n');
 
-SOUVENIRS (${memories.length} au total, échantillon de 40):
-${memoriesSample}
+    const maskStr = JSON.stringify(maskCore, null, 2);
 
-STATISTIQUES:
-${JSON.stringify(statistics.topLabels, null, 2)}
+    const prompt = `Tu es RÉDACTEUR DE CHARTE. Tu crées les règles d'écriture pour qu'une IA puisse écrire COMME cette personne.
 
-TON TRAVAIL: Trouve les insights non évidents.
+## PERSONA DÉFINI:
+${maskStr}
 
-CHERCHE:
+## EXEMPLES DE VOIX (souvenirs révélant le style):
+${voiceExamples || memoriesSample}
 
-## Patterns Cachés
-[Connexions non évidentes entre sujets qui semblent différents]
+## TON TRAVAIL
 
-## Contradictions
-[Souvenirs qui se contredisent ou montrent une évolution]
+Génère la CHARTE D'ÉCRITURE en JSON. Cette charte sera utilisée pour prompter une IA à écrire des articles.
 
-## Absences Surprenantes
-[Ce qu'on attendrait de cette personne mais qui n'apparaît pas]
+RÈGLES:
+- Les patterns doivent être SPÉCIFIQUES et ACTIONNABLES
+- Les forbiddenPatterns sont les "tells" qui trahissent l'IA
+- Les humanSignals sont ce qui rend le texte vivant
+- Les expertSignals prouvent que l'auteur sait de quoi il parle
 
-## Intensités Émotionnelles
-[Sujets où la personne semble avoir une charge émotionnelle forte]
+## OUTPUT JSON (pas de markdown):
 
-## Hypothèses
-[Ce que tu déduis au-delà de ce qui est explicite]
+{
+  "allowedPatterns": [
+    {"pattern": "Description du pattern", "example": "Phrase exemple"},
+    {"pattern": "Anecdote personnelle en ouverture", "example": "L'autre jour, j'ai..."},
+    {"pattern": "Question rhétorique", "example": "Mais est-ce vraiment le cas?"}
+  ],
+  "forbiddenPatterns": [
+    {"pattern": "Dans cet article nous allons", "reason": "Signal IA évident", "alternative": "Attaquer directement le sujet"},
+    {"pattern": "Il est important de noter que", "reason": "Formule creuse", "alternative": "Dire le truc directement"},
+    {"pattern": "En conclusion", "reason": "Trop mécanique", "alternative": "Terminer naturellement"},
+    {"pattern": "N'hésitez pas à", "reason": "Trop commercial", "alternative": "Impératif direct"}
+  ],
+  "rhythm": {
+    "avgSentenceLength": "15-20 mots",
+    "shortSentenceFrequency": "1 phrase courte tous les 3-4 phrases",
+    "maxLongSentence": 35,
+    "paragraphLength": "3-5 phrases"
+  },
+  "humanSignals": {
+    "anecdoteType": "Type d'anecdotes que cette personne utiliserait",
+    "opinionStyle": "Comment elle exprime ses opinions",
+    "hesitations": ["Je ne suis pas certain que...", "Ça dépend vraiment de...", "Honnêtement..."],
+    "irregularities": ["Phrase sans verbe occasionnelle", "Parenthèse digressive", "Début par Et/Mais"]
+  },
+  "expertSignals": {
+    "precisionMarkers": ["Sur mes X projets...", "En Y années de..."],
+    "insiderReferences": ["Ce que les [pros] ne disent pas...", "Entre nous..."],
+    "nuancePatterns": ["Sauf si...", "Dans le cas particulier de...", "Attention cependant..."],
+    "concreteDetails": "Type de détails concrets à inclure"
+  },
+  "examplesInTone": [
+    "Une phrase exemple parfaitement dans le ton du persona",
+    "Une autre phrase exemple dans le bon style"
+  ],
+  "examplesOutOfTone": [
+    {"phrase": "Il est absolument essentiel de considérer que...", "reason": "Trop formel, superlatif vide"},
+    {"phrase": "Dans notre monde moderne en constante évolution...", "reason": "Cliché IA absolu"}
+  ],
+  "vocabulary": {
+    "preferred": ["mots que cette personne utilise naturellement"],
+    "avoided": ["mots trop soutenus ou trop IA"],
+    "jargon": ["termes techniques qu'elle maîtrise"]
+  }
+}`;
 
-FORMAT pour chaque trouvaille:
-**Observation**: [ce que tu as remarqué]
-**Preuves**: [souvenirs qui le montrent, cite les numéros]
-**Hypothèse**: [ce que ça pourrait signifier]
-
-Sois perspicace et original. 400-600 mots.`;
-
-    return await this.api.call(prompt, {
+    const response = await this.api.call(prompt, {
       provider: this.provider,
-      model: detectiveModel,
-      maxTokens: 1500
+      model: chartererModel,
+      maxTokens: 2500
     });
+
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.error('Failed to parse charterer response:', e);
+        return this.getDefaultCharter();
+      }
+    }
+    return this.getDefaultCharter();
+  }
+
+  // ========== DEFAULTS ==========
+  getDefaultMask() {
+    return {
+      mask: {
+        type: 'passionne',
+        profile: {
+          firstName: 'À définir',
+          lastName: 'À définir',
+          ageRange: '30-50',
+          location: 'France',
+          background: 'Extraction incomplète - à compléter manuellement',
+          currentSituation: 'À définir'
+        },
+        expertiseLevel: 'praticien',
+        expertiseDomains: [],
+        bias: 'À définir',
+        mission: 'À définir',
+        limits: ['À définir'],
+        uniqueValue: 'À définir'
+      },
+      backstory: {
+        trigger: 'À définir',
+        experience: 'À définir',
+        motivation: 'À définir',
+        source: 'À définir',
+        vulnerability: 'À définir',
+        fullText: 'Extraction incomplète. Veuillez compléter manuellement.'
+      },
+      editorial: {
+        angle: 'pedagogue',
+        tone: {
+          register: 'conversationnel',
+          technicality: 'accessible',
+          warmth: 'chaleureux',
+          assertiveness: 'nuance'
+        },
+        implicitValues: [],
+        editorialPromise: 'À définir'
+      }
+    };
+  }
+
+  getDefaultCharter() {
+    return {
+      allowedPatterns: [],
+      forbiddenPatterns: [
+        { pattern: 'Dans cet article', reason: 'Signal IA', alternative: 'Attaquer directement' },
+        { pattern: 'Il est important de', reason: 'Formule creuse', alternative: 'Être direct' }
+      ],
+      rhythm: {
+        avgSentenceLength: '15-20 mots',
+        shortSentenceFrequency: '1/4',
+        maxLongSentence: 35,
+        paragraphLength: '3-5 phrases'
+      },
+      humanSignals: {
+        anecdoteType: 'À définir',
+        opinionStyle: 'À définir',
+        hesitations: [],
+        irregularities: []
+      },
+      expertSignals: {
+        precisionMarkers: [],
+        insiderReferences: [],
+        nuancePatterns: [],
+        concreteDetails: 'À définir'
+      },
+      examplesInTone: [],
+      examplesOutOfTone: [],
+      vocabulary: { preferred: [], avoided: [], jargon: [] }
+    };
   }
 
   // ========== HELPERS ==========
