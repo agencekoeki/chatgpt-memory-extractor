@@ -40,6 +40,8 @@ function setupListeners() {
     e.preventDefault();
     window.close();
   });
+  $('resetKeepKeys').addEventListener('click', () => resetData(false));
+  $('resetAll').addEventListener('click', () => resetData(true));
 }
 
 // ========== SAVE SETTINGS ==========
@@ -176,4 +178,65 @@ function showStatus(type, message) {
   setTimeout(() => {
     status.style.display = 'none';
   }, 5000);
+}
+
+// ========== RESET DATA ==========
+async function resetData(includeKeys) {
+  const message = includeKeys
+    ? '⚠️ TOUT SUPPRIMER ?\n\n' +
+      'Cela va supprimer :\n' +
+      '• Toutes les mémoires extraites\n' +
+      '• Le taggage E-E-A-T\n' +
+      '• L\'analyse persona\n' +
+      '• VOS CLÉS API\n\n' +
+      'Cette action est irréversible !'
+    : '⚠️ Réinitialiser les données ?\n\n' +
+      'Cela va supprimer :\n' +
+      '• Toutes les mémoires extraites\n' +
+      '• Le taggage E-E-A-T\n' +
+      '• L\'analyse persona\n\n' +
+      'Vos clés API seront conservées.';
+
+  if (!confirm(message)) return;
+
+  try {
+    // Save API keys if we want to keep them
+    let savedKeys = null;
+    if (!includeKeys) {
+      savedKeys = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
+    }
+
+    // Clear all data
+    await chrome.runtime.sendMessage({ action: 'clearAll' });
+
+    // Also delete IndexedDB completely to be sure
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase('MemoryExtractorDB');
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+      request.onblocked = () => resolve();
+    });
+
+    // Restore API keys if needed
+    if (savedKeys && !includeKeys) {
+      // Wait a bit for the DB to be recreated
+      await new Promise(r => setTimeout(r, 500));
+      await chrome.runtime.sendMessage({ action: 'saveApiKeys', keys: savedKeys });
+    }
+
+    showStatus('success', includeKeys
+      ? '✓ Tout a été supprimé !'
+      : '✓ Données réinitialisées (clés API conservées)');
+
+    // Clear form if keys were deleted
+    if (includeKeys) {
+      $('anthropicKey').value = '';
+      $('openaiKey').value = '';
+      $('googleKey').value = '';
+    }
+
+  } catch (e) {
+    console.error('Reset error:', e);
+    showStatus('error', 'Erreur: ' + e.message);
+  }
 }

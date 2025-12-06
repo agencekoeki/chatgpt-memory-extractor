@@ -305,9 +305,9 @@
       <div class="form-group">
         <label for="labelerModel">Modèle pour labélisation (rapide)</label>
         <select id="labelerModel">
-          <option value="haiku">Claude Haiku 3.5</option>
+          <option value="haiku">Claude 3.5 Haiku</option>
           <option value="mini">GPT-4o Mini</option>
-          <option value="flash">Gemini Flash</option>
+          <option value="flash">Gemini 2.0 Flash</option>
         </select>
       </div>
 
@@ -315,9 +315,9 @@
         <label for="profilerModel">Modèle pour analyse (intelligent)</label>
         <select id="profilerModel">
           <option value="opus">Claude Opus 4</option>
-          <option value="sonnet">Claude Sonnet 4</option>
+          <option value="sonnet">Claude Sonnet 4.5</option>
           <option value="standard">GPT-4o</option>
-          <option value="pro">Gemini Pro</option>
+          <option value="pro">Gemini 2.0 Pro</option>
         </select>
       </div>
 
@@ -346,6 +346,42 @@
       <button class="btn btn-outline" id="testBtn">
         Tester les clés
       </button>
+    </div>
+
+    <!-- DANGER ZONE -->
+    <div class="card" style="margin-top: 32px; border-color: rgba(239, 68, 68, 0.3);">
+      <div class="card-title" style="color: #f87171;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        Zone de danger
+      </div>
+
+      <p style="font-size: 13px; color: #a1a1aa; margin-bottom: 16px;">
+        Réinitialiser les données de l'extension. Ces actions sont irréversibles.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="btn btn-outline" id="resetKeepKeys" style="justify-content: flex-start; border-color: rgba(251, 146, 60, 0.4); color: #fb923c;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+          Réinitialiser les données (garder les clés API)
+        </button>
+
+        <button class="btn btn-outline" id="resetAll" style="justify-content: flex-start; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+          Tout supprimer (données + clés API)
+        </button>
+      </div>
     </div>
 
     <div class="status" id="status"></div>
