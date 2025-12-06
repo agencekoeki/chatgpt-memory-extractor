@@ -544,11 +544,21 @@ export class AnalysisPipeline {
 
       // Stage 6: MODE MAX - Freud vs Jung debate (if enabled and both keys available)
       let dualAnalysis = null;
+      console.log('[MODE MAX] Check:', {
+        modeMax: this.modeMax,
+        hasAnthropic: !!this.keys.anthropic,
+        hasGoogle: !!this.keys.google
+      });
+
       if (this.modeMax && this.keys.anthropic && this.keys.google) {
-        onProgress('dualAnalysis', 0, 'agent_freudJung_status'); // i18n key
+        console.log('[MODE MAX] Starting dual analysis...');
+        onProgress('dualAnalysis', 0, 'agent_freudJung_status');
         dualAnalysis = await this.runDualAnalysis(memories, results.statistics, maskCore, psychProfile);
+        console.log('[MODE MAX] Dual analysis result:', dualAnalysis ? 'success' : 'failed', dualAnalysis?.error || '');
         results.stages.dualAnalysis = { done: true, time: Date.now() - startTime };
         onProgress('dualAnalysis', 100, 'agent_freudJung_status');
+      } else {
+        console.log('[MODE MAX] Skipped - missing requirements');
       }
 
       // Combine into final persona
@@ -975,24 +985,35 @@ ${PROMPTS.schemas.freud}
 JSON only, no markdown.`;
 
     try {
+      console.log('[DualAnalysis] Starting with models:', { geminiModel, claudeModel });
+
       // Run both analyses in parallel
       const [geminiResponse, claudeResponse] = await Promise.all([
         this.api.callGoogle(analysisPrompt, { model: geminiModel, maxTokens: 2000 }),
         this.api.callAnthropic(analysisPrompt, { model: claudeModel, maxTokens: 2000 })
       ]);
 
+      console.log('[DualAnalysis] Gemini response length:', geminiResponse?.length);
+      console.log('[DualAnalysis] Claude response length:', claudeResponse?.length);
+
       // Parse responses
       const parseJson = (text) => {
         const match = text.match(/\{[\s\S]*\}/);
         if (match) {
           try { return JSON.parse(match[0]); }
-          catch { return null; }
+          catch (e) {
+            console.error('[DualAnalysis] JSON parse error:', e.message);
+            return null;
+          }
         }
+        console.warn('[DualAnalysis] No JSON found in response');
         return null;
       };
 
       const geminiAnalysis = parseJson(geminiResponse);
       const claudeAnalysis = parseJson(claudeResponse);
+
+      console.log('[DualAnalysis] Parsed - Gemini:', !!geminiAnalysis, 'Claude:', !!claudeAnalysis);
 
       // Now run arbitration with Claude as Jung responding to Freud
       const arbitrationPrompt = `${jungArb.intro}

@@ -92,6 +92,8 @@ export class APIClient {
     const model = options.model || 'gemini-2.5-flash'; // Gemini 2.5 Flash (stable)
     const maxTokens = options.maxTokens || 1024;
 
+    console.log(`[API] Calling Google with model: ${model}`);
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.keys.google}`;
 
     const response = await this.fetchWithTimeout(url, {
@@ -118,6 +120,7 @@ export class APIClient {
       throw new Error('Google API returned empty response');
     }
 
+    console.log('[API] Google response received');
     return data.candidates[0].content.parts[0].text;
   }
 

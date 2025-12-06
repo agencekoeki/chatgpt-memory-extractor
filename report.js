@@ -1528,8 +1528,26 @@ function renderDualAnalysis(dualAnalysis) {
   const geminiContainer = document.getElementById('geminiAnalysis');
   const divergencesContainer = document.getElementById('divergencesList');
 
-  // No dual analysis available
-  if (!dualAnalysis || dualAnalysis.error) {
+  console.log('[Report] renderDualAnalysis called with:', dualAnalysis);
+
+  // No dual analysis available or error
+  if (!dualAnalysis) {
+    console.log('[Report] No dual analysis data');
+    setAgentState('dual-report', 'error', 'Pas de données');
+    return;
+  }
+
+  if (dualAnalysis.error) {
+    console.error('[Report] Dual analysis error:', dualAnalysis.error);
+    setAgentState('dual-report', 'error', `Erreur: ${dualAnalysis.error}`);
+    if (arbitrationContainer) {
+      arbitrationContainer.innerHTML = `
+        <div style="color: #f87171; padding: 16px; background: rgba(248, 113, 113, 0.1); border-radius: 8px;">
+          <strong>Erreur Analyse Croisée:</strong><br>
+          ${escapeHtml(dualAnalysis.error)}
+        </div>
+      `;
+    }
     return;
   }
 
