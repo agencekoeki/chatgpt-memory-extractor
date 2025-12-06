@@ -271,9 +271,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       text-align: center;
       padding: 40px;
+      padding-top: 60px;
+      overflow-y: auto;
       transition: opacity 0.8s ease, transform 0.8s ease;
     }
 
@@ -1353,6 +1355,27 @@
         </div>
       </div>
 
+      <!-- CTA BUTTONS - MOVED UP -->
+      <div style="margin: 32px 0;">
+        <button class="landing-cta" id="landingCta">
+          Voir mon analyse complete
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+
+        <button class="share-btn" id="shareBtn" style="display: block; margin: 16px auto 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Partager mon profil
+        </button>
+      </div>
+
       <!-- TOP REVELATIONS -->
       <div class="revelations" id="revelations">
         <div class="revelations-title">L'IA a detecte que tu...</div>
@@ -1361,27 +1384,9 @@
         </div>
       </div>
 
-      <button class="landing-cta" id="landingCta">
-        Voir mon analyse complete
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
-
       <p class="landing-disclaimer">
         Analyse basee sur tes conversations avec ChatGPT
       </p>
-
-      <button class="share-btn" id="shareBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="18" cy="5" r="3"/>
-          <circle cx="6" cy="12" r="3"/>
-          <circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        </svg>
-        Partager mon profil
-      </button>
     </div>
   </div>
 
