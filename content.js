@@ -1755,47 +1755,46 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
 
     if (messages.length > existingMessages) {
       // New message appeared, wait for streaming to complete
-      let lastLength = 0;
-      let stableCount = 0;
       let currentMessages = messages; // Initialize with current messages
 
       log('[DEBUG] Nouvelle réponse détectée, attente fin du streaming...', 'debug');
 
-      // Attendre que le texte arrête de changer (fin du streaming)
-      while (stableCount < 4) {
-        await wait(1500);
+      // Sélecteurs pour détecter l'état du bouton
+      const stopButtonSelectors = [
+        'button[data-testid="stop-button"]',
+        'button[aria-label*="Stop"]',
+        'button[aria-label*="Arrêter"]',
+        '[aria-label*="stop"]'
+      ];
 
-        // Re-query to get updated content
-        let freshMessages = [];
-        for (const sel of messageSelectors) {
-          const found = document.querySelectorAll(sel);
-          if (found.length > freshMessages.length) {
-            freshMessages = found;
-          }
-        }
-        currentMessages = freshMessages; // Update reference
+      const submitButtonSelectors = [
+        'button[data-testid="composer-submit-button"]',
+        'button[data-testid="send-button"]',
+        'button[aria-label*="Send"]',
+        'button[aria-label*="Envoyer"]'
+      ];
 
-        const lastMessage = currentMessages[currentMessages.length - 1];
-        const currentLength = lastMessage?.textContent?.length || 0;
+      // Attendre que le bouton stop disparaisse et que le bouton submit revienne
+      let isStreaming = true;
+      while (isStreaming) {
+        await wait(500); // Check plus fréquent (500ms au lieu de 1500ms)
 
-        log(`[DEBUG] Longueur actuelle: ${currentLength}, précédente: ${lastLength}`, 'debug');
+        // Vérifier si le bouton stop existe encore
+        const stopButton = stopButtonSelectors
+          .map(sel => document.querySelector(sel))
+          .find(btn => btn !== null);
 
-        if (currentLength === lastLength && currentLength > 100) {
-          stableCount++;
-          log(`[DEBUG] Texte stable, compteur: ${stableCount}/4`, 'debug');
-        } else {
-          stableCount = 0;
-          lastLength = currentLength;
-        }
+        // Vérifier si le bouton submit est revenu
+        const submitButton = submitButtonSelectors
+          .map(sel => document.querySelector(sel))
+          .find(btn => btn !== null);
 
-        // Check if stop button disappeared (streaming done)
-        const stopButton = document.querySelector(
-          'button[aria-label*="Stop"], button[data-testid="stop-button"], ' +
-          'button[aria-label*="Arrêter"], [aria-label*="stop"]'
-        );
-        if (!stopButton && currentLength > 100) {
-          log('[DEBUG] Bouton stop disparu, réponse terminée', 'debug');
-          stableCount = 4; // Force exit
+        log(`[DEBUG] Stop button: ${!!stopButton}, Submit button: ${!!submitButton}`, 'debug');
+
+        // Streaming terminé quand: pas de bouton stop ET bouton submit présent
+        if (!stopButton && submitButton) {
+          log('[DEBUG] Bouton stop disparu, bouton submit présent - réponse terminée!', 'debug');
+          isStreaming = false;
         }
 
         // Timeout de sécurité
@@ -1805,27 +1804,46 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
         }
       }
 
+      // Petit délai pour laisser le DOM se stabiliser après fin du streaming
+      await wait(300);
+
+      // Re-query pour récupérer le contenu final
+      for (const sel of messageSelectors) {
+        const found = document.querySelectorAll(sel);
+        if (found.length > currentMessages.length) {
+          currentMessages = found;
+        }
+      }
+
       // Get the last assistant message text (use currentMessages which is up-to-date)
       let responseText = '';
+
+      log(`[DEBUG] Nombre total de messages: ${currentMessages.length}`, 'debug');
 
       // Try multiple ways to get the text
       const lastMessageEl = currentMessages[currentMessages.length - 1];
 
+      log(`[DEBUG] Dernier élément trouvé: ${lastMessageEl?.tagName}, classes: ${lastMessageEl?.className?.substring(0, 100)}`, 'debug');
+
       // Method 1: Direct textContent
       responseText = lastMessageEl?.textContent?.trim() || '';
+      log(`[DEBUG] Method 1 (textContent): ${responseText.length} chars`, 'debug');
 
       // Method 2: If empty, try innerText
       if (!responseText || responseText.length < 50) {
         responseText = lastMessageEl?.innerText?.trim() || '';
+        log(`[DEBUG] Method 2 (innerText): ${responseText.length} chars`, 'debug');
       }
 
       // Method 3: Try to find prose/markdown inside
       if (!responseText || responseText.length < 50) {
         const proseEl = lastMessageEl?.querySelector('.prose, .markdown, [class*="markdown"]');
         responseText = proseEl?.textContent?.trim() || responseText;
+        log(`[DEBUG] Method 3 (prose/markdown): ${responseText.length} chars`, 'debug');
       }
 
       log(`[DEBUG] Texte extrait: ${responseText.length} caractères`, 'debug');
+      log(`[DEBUG] Aperçu réponse: "${responseText.substring(0, 200)}..."`, 'debug');
 
       if (responseText && responseText.length > 30) {
         log(`✅ Réponse reçue: ${responseText.length} caractères`, 'success');
