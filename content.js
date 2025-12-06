@@ -1139,6 +1139,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 const SYSTEM_PREAMBLE = `Tu es un système d'analyse comportementale. Ton rôle: observer froidement, sans jugement, sans flatterie, sans politesse excessive.
 
+IMPORTANT - FOUILLE PROFONDE:
+- Parcours TOUTES nos conversations passées, pas seulement les récentes
+- Remonte le plus loin possible dans notre historique
+- Chaque détail compte, même les mentions anodines
+- Croise les informations de différentes conversations
+
 RÈGLES STRICTES:
 - Ne dis QUE ce que tu as RÉELLEMENT observé dans nos échanges passés
 - Si tu n'as pas de données → réponds "Données insuffisantes"
@@ -1722,61 +1728,116 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
   log('Prompt envoyé, attente de la réponse...', 'debug');
 
   // Wait for response (with timeout)
-  const maxWait = 90000; // 90 seconds pour les longues réponses
+  const maxWait = 120000; // 120 seconds pour les longues réponses
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWait) {
-    await wait(1500);
+    await wait(2000);
 
-    // Check if a new assistant message appeared
-    const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
+    // Multiple selectors for assistant messages (ChatGPT UI changes often)
+    const messageSelectors = [
+      '[data-message-author-role="assistant"]',
+      '.agent-turn .markdown',
+      '.message-content.assistant',
+      '[class*="agent-turn"]',
+      '.prose'
+    ];
+
+    let messages = [];
+    for (const sel of messageSelectors) {
+      const found = document.querySelectorAll(sel);
+      if (found.length > messages.length) {
+        messages = found;
+      }
+    }
+
+    log(`[DEBUG] Messages trouvés: ${messages.length}, existants: ${existingMessages}`, 'debug');
 
     if (messages.length > existingMessages) {
       // New message appeared, wait for streaming to complete
       let lastLength = 0;
       let stableCount = 0;
 
+      log('[DEBUG] Nouvelle réponse détectée, attente fin du streaming...', 'debug');
+
       // Attendre que le texte arrête de changer (fin du streaming)
-      while (stableCount < 3) {
-        await wait(1000);
+      while (stableCount < 4) {
+        await wait(1500);
 
-        const lastMessage = messages[messages.length - 1];
-        const currentLength = lastMessage.textContent?.length || 0;
+        // Re-query to get updated content
+        let currentMessages = [];
+        for (const sel of messageSelectors) {
+          const found = document.querySelectorAll(sel);
+          if (found.length > currentMessages.length) {
+            currentMessages = found;
+          }
+        }
 
-        if (currentLength === lastLength && currentLength > 50) {
+        const lastMessage = currentMessages[currentMessages.length - 1];
+        const currentLength = lastMessage?.textContent?.length || 0;
+
+        log(`[DEBUG] Longueur actuelle: ${currentLength}, précédente: ${lastLength}`, 'debug');
+
+        if (currentLength === lastLength && currentLength > 100) {
           stableCount++;
+          log(`[DEBUG] Texte stable, compteur: ${stableCount}/4`, 'debug');
         } else {
           stableCount = 0;
           lastLength = currentLength;
         }
 
         // Check if stop button disappeared (streaming done)
-        const stopButton = document.querySelector('button[aria-label*="Stop"], button[data-testid="stop-button"]');
-        if (!stopButton && currentLength > 50) {
-          stableCount = 3; // Force exit
+        const stopButton = document.querySelector(
+          'button[aria-label*="Stop"], button[data-testid="stop-button"], ' +
+          'button[aria-label*="Arrêter"], [aria-label*="stop"]'
+        );
+        if (!stopButton && currentLength > 100) {
+          log('[DEBUG] Bouton stop disparu, réponse terminée', 'debug');
+          stableCount = 4; // Force exit
         }
 
         // Timeout de sécurité
-        if (Date.now() - startTime > maxWait) break;
+        if (Date.now() - startTime > maxWait) {
+          log('[DEBUG] Timeout atteint', 'warning');
+          break;
+        }
       }
 
-      // Get the last assistant message
-      const lastMessage = messages[messages.length - 1];
-      const responseText = lastMessage.textContent?.trim();
+      // Get the last assistant message text
+      let responseText = '';
+
+      // Try multiple ways to get the text
+      const lastMessageEl = messages[messages.length - 1];
+
+      // Method 1: Direct textContent
+      responseText = lastMessageEl?.textContent?.trim() || '';
+
+      // Method 2: If empty, try innerText
+      if (!responseText || responseText.length < 50) {
+        responseText = lastMessageEl?.innerText?.trim() || '';
+      }
+
+      // Method 3: Try to find prose/markdown inside
+      if (!responseText || responseText.length < 50) {
+        const proseEl = lastMessageEl?.querySelector('.prose, .markdown, [class*="markdown"]');
+        responseText = proseEl?.textContent?.trim() || responseText;
+      }
+
+      log(`[DEBUG] Texte extrait: ${responseText.length} caractères`, 'debug');
 
       if (responseText && responseText.length > 30) {
-        log(`Réponse reçue: ${responseText.length} caractères`, 'success');
+        log(`✅ Réponse reçue: ${responseText.length} caractères`, 'success');
         return responseText;
       }
     }
   }
 
-  log('Timeout en attente de réponse', 'warning');
+  log('⚠️ Timeout en attente de réponse', 'warning');
   return null;
 }
 
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.13 + Interrogation chargé', 'info');
+log('🔧 Memory Extractor v3.14 + Interrogation chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
