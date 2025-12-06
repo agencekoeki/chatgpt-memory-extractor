@@ -1757,6 +1757,7 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
       // New message appeared, wait for streaming to complete
       let lastLength = 0;
       let stableCount = 0;
+      let currentMessages = messages; // Initialize with current messages
 
       log('[DEBUG] Nouvelle réponse détectée, attente fin du streaming...', 'debug');
 
@@ -1765,13 +1766,14 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
         await wait(1500);
 
         // Re-query to get updated content
-        let currentMessages = [];
+        let freshMessages = [];
         for (const sel of messageSelectors) {
           const found = document.querySelectorAll(sel);
-          if (found.length > currentMessages.length) {
-            currentMessages = found;
+          if (found.length > freshMessages.length) {
+            freshMessages = found;
           }
         }
+        currentMessages = freshMessages; // Update reference
 
         const lastMessage = currentMessages[currentMessages.length - 1];
         const currentLength = lastMessage?.textContent?.length || 0;
@@ -1803,11 +1805,11 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
         }
       }
 
-      // Get the last assistant message text
+      // Get the last assistant message text (use currentMessages which is up-to-date)
       let responseText = '';
 
       // Try multiple ways to get the text
-      const lastMessageEl = messages[messages.length - 1];
+      const lastMessageEl = currentMessages[currentMessages.length - 1];
 
       // Method 1: Direct textContent
       responseText = lastMessageEl?.textContent?.trim() || '';
