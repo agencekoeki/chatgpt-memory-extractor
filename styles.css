@@ -22,11 +22,13 @@
 
 body {
   width: 400px;
-  height: 520px;
+  min-height: 480px;
+  max-height: 600px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .app {
@@ -214,13 +216,13 @@ body {
 /* ========== SCREEN HEADER ========== */
 .screen-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .screen-header h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .screen-subtitle {
@@ -608,27 +610,27 @@ body {
 /* ========== CONSENT SCREEN ========== */
 .consent-content {
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   align-items: stretch;
 }
 
 .consent-step {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .consent-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), #6366f1);
   color: white;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -639,18 +641,18 @@ body {
 .consent-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .consent-text strong {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
 .consent-text span {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .optional-badge {
@@ -696,31 +698,33 @@ body {
 
 .consent-info {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   background: rgba(34, 197, 94, 0.08);
   border: 1px solid rgba(34, 197, 94, 0.2);
-  border-radius: 12px;
-  margin-top: 8px;
+  border-radius: 10px;
+  margin-top: 4px;
 }
 
 .consent-info svg {
   color: var(--success);
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
+  width: 16px;
+  height: 16px;
 }
 
 .consent-info strong {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--success);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .consent-info p {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 /* ========== INTERROGATION OPTION ========== */
