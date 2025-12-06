@@ -9,6 +9,7 @@ let memories = [];
 document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupExport();
+  setupReset();
   setupLanding();
   setupShare();
   await loadData();
@@ -520,6 +521,55 @@ function setupNavigation() {
 
 function setupExport() {
   document.getElementById('exportJson').addEventListener('click', exportJson);
+}
+
+function setupReset() {
+  const resetBtn = document.getElementById('resetData');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', resetAllData);
+  }
+}
+
+async function resetAllData() {
+  const confirmed = confirm(
+    '⚠️ Reinitialiser l\'analyse ?\n\n' +
+    'Cela va supprimer :\n' +
+    '• Toutes les memoires extraites\n' +
+    '• L\'analyse de persona\n' +
+    '• Toutes les statistiques\n\n' +
+    'Cette action est irreversible !'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    // Delete IndexedDB database
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('MemoryExtractorDB');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => {
+        console.warn('Database deletion blocked, forcing reload...');
+        resolve();
+      };
+    });
+
+    // Tell background to clear analysis results
+    try {
+      await chrome.runtime.sendMessage({ action: 'clearAnalysisResults' });
+    } catch (e) {
+      // Background might not have this handler, that's OK
+      console.log('Background clear:', e.message);
+    }
+
+    // Feedback and reload
+    alert('✓ Donnees supprimees !\n\nLa page va se recharger.');
+    window.location.reload();
+
+  } catch (e) {
+    console.error('Reset error:', e);
+    alert('Erreur lors de la reinitialisation.\nEssayez de fermer et rouvrir le rapport.');
+  }
 }
 
 // ========== LOAD DATA ==========
