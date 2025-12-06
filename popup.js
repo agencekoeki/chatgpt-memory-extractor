@@ -352,18 +352,25 @@ async function startExtraction() {
 async function handleContinueToAnalysis() {
   const enableInterrogation = document.getElementById('enableInterrogation')?.checked;
 
+  console.log('[DEBUG] handleContinueToAnalysis:', { enableInterrogation, isOnChatGPT });
+
   if (enableInterrogation && isOnChatGPT) {
     // Start interrogation first
+    console.log('[DEBUG] Starting interrogation...');
     await startInterrogation();
   } else {
     // Go directly to analysis
+    console.log('[DEBUG] Skipping interrogation, going to analyze');
     goToScreen('analyze');
   }
 }
 
 // ========== INTERROGATION ==========
 async function startInterrogation() {
-  if (isInterrogating) return;
+  if (isInterrogating) {
+    console.log('[DEBUG] Interrogation already in progress');
+    return;
+  }
 
   try {
     isInterrogating = true;
@@ -373,23 +380,30 @@ async function startInterrogation() {
     const modeRadio = document.querySelector('input[name="interrogationMode"]:checked');
     const mode = modeRadio?.value || 'standard';
 
+    console.log('[DEBUG] Interrogation mode:', mode);
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log('[DEBUG] Sending startInterrogation to tab:', tab?.id, tab?.url);
 
     const response = await sendTabMessage(tab.id, {
       action: 'startInterrogation',
       mode: mode
     });
 
+    console.log('[DEBUG] Content script response:', response);
+
     if (!response) {
-      throw new Error(t('error_extraction'));
+      throw new Error(t('error_extraction') + ' (no response from content script)');
     }
 
     if (response.error) {
       throw new Error(response.message || t('error_extraction'));
     }
 
+    console.log('[DEBUG] Interrogation started successfully, waiting for completion...');
+
   } catch (error) {
-    console.error('Interrogation error:', error);
+    console.error('[DEBUG] Interrogation error:', error);
     isInterrogating = false;
     updateExtractScreen();
     // Continue to analysis anyway
@@ -455,10 +469,12 @@ function handleMessage(request, sender, sendResponse) {
       break;
 
     case 'interrogationProgress':
+      console.log('[DEBUG] Received interrogationProgress:', request);
       handleInterrogationProgress(request);
       break;
 
     case 'interrogationComplete':
+      console.log('[DEBUG] Received interrogationComplete:', request);
       handleInterrogationComplete(request);
       break;
 

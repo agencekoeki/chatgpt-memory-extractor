@@ -1112,10 +1112,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Nouveau: interrogation
   if (request.action === 'startInterrogation') {
+    log('[DEBUG] Received startInterrogation request, mode: ' + request.mode, 'info');
     sendResponse({ started: true });
 
     const mode = request.mode || 'standard'; // 'quick', 'standard', 'complete'
     startInterrogation(mode).then(result => {
+      log('[DEBUG] startInterrogation result: ' + JSON.stringify(result), 'info');
       if (result.error) {
         chrome.runtime.sendMessage({
           action: 'interrogationComplete',
