@@ -982,37 +982,98 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // ========== INTERROGATION ==========
-// Prompts à envoyer à ChatGPT pour découvrir ce qu'il sait
+// Prompts structurés pour extraire des observations froides et factuelles
+// Chaque prompt met ChatGPT dans un état "analytique" sans flatterie
+
+const SYSTEM_PREAMBLE = `Tu es un système d'analyse comportementale. Ton rôle: observer froidement, sans jugement, sans flatterie, sans politesse excessive.
+
+RÈGLES STRICTES:
+- Ne dis QUE ce que tu as RÉELLEMENT observé dans nos échanges passés
+- Si tu n'as pas de données → réponds "Données insuffisantes"
+- Pas d'invention, pas de supposition, pas de généralisation
+- Pas de formules de politesse ("c'est une excellente question", "vous semblez être quelqu'un de formidable")
+- Ton froid, clinique, factuel. Comme un rapport médical.
+
+POURQUOI ces règles: Je veux comprendre ce que tu as VRAIMENT retenu de moi, pas ce que tu penses que je veux entendre. Les flatteries faussent l'analyse. Les inventions sont inutiles. Seuls les faits observés comptent.`;
+
 const INTERROGATION_PROMPTS = [
   {
     id: 'identity',
-    prompt: "En te basant uniquement sur nos conversations passées, décris-moi en quelques phrases. Qui suis-je selon toi ?",
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Parcours mentalement nos conversations passées
+2. Identifie les éléments factuels sur mon identité (prénom, situation, contexte)
+3. Note ce qui revient souvent vs ce qui n'a été dit qu'une fois
+
+QUESTION: Qui suis-je? Décris factuellement ce que tu sais de mon identité.
+Format: liste à puces, données brutes uniquement.`,
     category: 'identite'
   },
   {
     id: 'interests',
-    prompt: "Quels sont mes principaux centres d'intérêt et passions d'après nos échanges ?",
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Liste les sujets que j'ai abordés avec toi
+2. Compte la fréquence approximative de chaque sujet
+3. Distingue: passion (revient souvent) vs curiosité ponctuelle (une seule fois)
+
+QUESTION: Quels sont mes centres d'intérêt réels basés sur nos échanges?
+Format: liste ordonnée par fréquence d'apparition.`,
     category: 'interets'
   },
   {
     id: 'profession',
-    prompt: "Que sais-tu de ma situation professionnelle et mon parcours ?",
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Repère les indices professionnels dans nos conversations (métier, projets, clients, collègues)
+2. Identifie le niveau d'expertise apparent (débutant, intermédiaire, expert)
+3. Note les frustrations ou ambitions professionnelles mentionnées
+
+QUESTION: Que sais-tu de ma situation professionnelle?
+Format: faits observés uniquement, pas d'interprétation.`,
     category: 'professionnel'
   },
   {
     id: 'personality',
-    prompt: "Quels traits de personnalité as-tu remarqués chez moi à travers nos conversations ?",
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Observe mon style de communication (formel/informel, long/court, émotif/rationnel)
+2. Note les patterns récurrents dans ma façon de formuler les choses
+3. Identifie les contradictions éventuelles entre ce que je dis et comment je le dis
+
+QUESTION: Quels traits de personnalité transparaissent dans ma façon d'écrire?
+Format: observations comportementales, pas de jugements de valeur.`,
     category: 'personnalite'
   },
   {
-    id: 'values',
-    prompt: "Quelles valeurs semblent importantes pour moi selon toi ?",
-    category: 'valeurs'
+    id: 'weaknesses',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Repère les moments où j'ai exprimé du doute, de la frustration, de l'inquiétude
+2. Identifie les sujets que j'évite ou que je survole
+3. Note les demandes d'aide récurrentes (ce sont souvent des points faibles)
+
+QUESTION: Quelles faiblesses, vulnérabilités ou zones d'inconfort as-tu observées?
+Format: liste factuelle, sans ménagement mais sans cruauté.`,
+    category: 'vulnerabilites'
   },
   {
-    id: 'challenges',
-    prompt: "Quels défis ou problèmes ai-je mentionnés ou semblé affronter ?",
-    category: 'defis'
+    id: 'biases',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Repère mes opinions tranchées ou récurrentes
+2. Identifie ce que je critique souvent vs ce que je valorise
+3. Note les biais cognitifs apparents (confirmation, optimisme, etc.)
+
+QUESTION: Quels biais, préjugés ou angles morts as-tu détectés dans ma façon de penser?
+Format: observations neutres, exemples concrets si possible.`,
+    category: 'biais'
   }
 ];
 
@@ -1079,7 +1140,59 @@ async function startInterrogation() {
   }
 }
 
-async function sendPromptAndWaitForResponse(prompt) {
+// Crée une nouvelle conversation sur ChatGPT
+async function createNewConversation() {
+  log('📝 Création nouvelle conversation...', 'debug');
+
+  // Méthode 1: Bouton "New chat" / "Nouvelle discussion"
+  const newChatBtn = document.querySelector(
+    'a[href="/"], button[data-testid="new-chat-button"], ' +
+    '[aria-label*="New chat"], [aria-label*="Nouvelle"], ' +
+    'nav a[href="/"]'
+  );
+
+  if (newChatBtn) {
+    simulateClick(newChatBtn);
+    await wait(1500);
+    log('Nouvelle conversation créée via bouton', 'success');
+    return true;
+  }
+
+  // Méthode 2: Raccourci clavier Ctrl+Shift+O (new chat)
+  try {
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'o',
+      code: 'KeyO',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true
+    }));
+    await wait(1500);
+    log('Nouvelle conversation créée via raccourci', 'success');
+    return true;
+  } catch (e) {
+    log('Raccourci clavier échoué', 'warning');
+  }
+
+  // Méthode 3: Navigation directe
+  try {
+    window.location.href = 'https://chatgpt.com/';
+    await wait(2000);
+    return true;
+  } catch (e) {
+    log('Navigation échouée', 'error');
+  }
+
+  return false;
+}
+
+async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
+  // Créer une nouvelle conversation pour isoler chaque question
+  if (createNewChat) {
+    await createNewConversation();
+    await wait(1000);
+  }
+
   // Find the input field
   const inputSelector = 'textarea[data-id="root"], #prompt-textarea, textarea[placeholder*="Message"], div[contenteditable="true"][data-placeholder]';
   const input = document.querySelector(inputSelector);
@@ -1089,22 +1202,30 @@ async function sendPromptAndWaitForResponse(prompt) {
     return null;
   }
 
-  // Count existing messages to know when a new one appears
-  const existingMessages = document.querySelectorAll('[data-message-author-role="assistant"]').length;
+  // Dans une nouvelle conversation, on attend 0 message assistant
+  const existingMessages = createNewChat ? 0 : document.querySelectorAll('[data-message-author-role="assistant"]').length;
 
   // Focus and type the prompt
   input.focus();
+  await wait(200);
 
   if (input.tagName === 'TEXTAREA') {
+    // Clear first
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(100);
+
+    // Type prompt
     input.value = prompt;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   } else {
     // contenteditable div
+    input.innerHTML = '';
     input.textContent = prompt;
     input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
   }
 
-  await wait(300);
+  await wait(500);
 
   // Find and click send button
   const sendButton = document.querySelector('button[data-testid="send-button"], button[aria-label*="Send"], button[aria-label*="Envoyer"]');
@@ -1114,36 +1235,61 @@ async function sendPromptAndWaitForResponse(prompt) {
     return null;
   }
 
+  // Attendre que le bouton soit enabled
+  let attempts = 0;
+  while (sendButton.disabled && attempts < 10) {
+    await wait(300);
+    attempts++;
+  }
+
   simulateClick(sendButton);
   log('Prompt envoyé, attente de la réponse...', 'debug');
 
   // Wait for response (with timeout)
-  const maxWait = 60000; // 60 seconds
+  const maxWait = 90000; // 90 seconds pour les longues réponses
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWait) {
-    await wait(1000);
+    await wait(1500);
 
     // Check if a new assistant message appeared
     const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
 
     if (messages.length > existingMessages) {
-      // New message appeared, wait for it to finish streaming
-      await wait(2000);
+      // New message appeared, wait for streaming to complete
+      let lastLength = 0;
+      let stableCount = 0;
 
-      // Check if still streaming (button might show "Stop generating")
-      const stopButton = document.querySelector('button[aria-label*="Stop"], button[data-testid="stop-button"]');
-      if (stopButton) {
-        // Still generating, wait more
-        log('Réponse en cours de génération...', 'debug');
-        await wait(3000);
+      // Attendre que le texte arrête de changer (fin du streaming)
+      while (stableCount < 3) {
+        await wait(1000);
+
+        const lastMessage = messages[messages.length - 1];
+        const currentLength = lastMessage.textContent?.length || 0;
+
+        if (currentLength === lastLength && currentLength > 50) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+          lastLength = currentLength;
+        }
+
+        // Check if stop button disappeared (streaming done)
+        const stopButton = document.querySelector('button[aria-label*="Stop"], button[data-testid="stop-button"]');
+        if (!stopButton && currentLength > 50) {
+          stableCount = 3; // Force exit
+        }
+
+        // Timeout de sécurité
+        if (Date.now() - startTime > maxWait) break;
       }
 
       // Get the last assistant message
       const lastMessage = messages[messages.length - 1];
       const responseText = lastMessage.textContent?.trim();
 
-      if (responseText && responseText.length > 20) {
+      if (responseText && responseText.length > 30) {
+        log(`Réponse reçue: ${responseText.length} caractères`, 'success');
         return responseText;
       }
     }
