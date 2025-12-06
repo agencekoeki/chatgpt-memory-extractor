@@ -1200,9 +1200,9 @@ async function exportJson(type = 'all') {
         break;
 
       case 'voice':
-        // Export "Ma voix IA" - Pour reproduire le style d'écriture
+        // Export "Persona IA" - Pour reproduire le style d'écriture/pensée
         data = buildVoiceProfile();
-        filename = `ma-voix-ia-${firstName}-${date}.json`;
+        filename = `persona-ia-${firstName}-${date}.json`;
         break;
 
       default:
@@ -1291,18 +1291,18 @@ function buildPublicProfile() {
   };
 }
 
-// Build "Ma voix IA" profile for AI reproducibility
+// Build "Persona IA" profile for AI reproducibility
 function buildVoiceProfile() {
   const persona = analysisResults?.persona;
 
   return {
     exportDate: new Date().toISOString(),
-    exportType: 'voice_profile',
-    titre: "Profil de reproduction vocale IA",
-    description: "Utilisez ce profil pour qu'une IA écrive comme vous",
+    exportType: 'persona_ia',
+    titre: "Persona IA - Profil de reproduction",
+    description: "Injectez ce profil dans une IA pour qu'elle écrive et pense comme vous",
 
     instructions: `Tu vas incarner ${persona?.mask?.profile?.firstName || 'cette personne'}.
-Voici son profil complet pour reproduire son style d'écriture et sa façon de penser.`,
+Voici son profil complet pour reproduire son style d'écriture, sa façon de penser, ses biais et sa personnalité.`,
 
     identite: {
       prenom: persona?.mask?.profile?.firstName || null,
