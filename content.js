@@ -1737,8 +1737,9 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
     // Multiple selectors for assistant messages (ChatGPT UI changes often)
     const messageSelectors = [
       '[data-message-author-role="assistant"]',
+      '.markdown.prose',                    // Classe exacte vue dans le DOM
+      '.markdown-new-styling',              // Nouvelle classe ChatGPT
       '.agent-turn .markdown',
-      '.message-content.assistant',
       '[class*="agent-turn"]',
       '.prose'
     ];
@@ -1768,6 +1769,7 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
       ];
 
       const submitButtonSelectors = [
+        '#composer-submit-button',                    // ID direct (vu dans le DOM)
         'button[data-testid="composer-submit-button"]',
         'button[data-testid="send-button"]',
         'button[aria-label*="Send"]',
@@ -1804,8 +1806,8 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
         }
       }
 
-      // Petit délai pour laisser le DOM se stabiliser après fin du streaming
-      await wait(300);
+      // Délai pour laisser le DOM se stabiliser après fin du streaming
+      await wait(800);
 
       // Re-query pour récupérer le contenu final
       for (const sel of messageSelectors) {
@@ -1829,20 +1831,41 @@ async function sendPromptAndWaitForResponse(prompt, createNewChat = true) {
       responseText = lastMessageEl?.textContent?.trim() || '';
       log(`[DEBUG] Method 1 (textContent): ${responseText.length} chars`, 'debug');
 
-      // Method 2: If empty, try innerText
+      // Method 2: If short, try innerText
       if (!responseText || responseText.length < 50) {
         responseText = lastMessageEl?.innerText?.trim() || '';
         log(`[DEBUG] Method 2 (innerText): ${responseText.length} chars`, 'debug');
       }
 
-      // Method 3: Try to find prose/markdown inside
+      // Method 3: Try to find prose/markdown inside the element
       if (!responseText || responseText.length < 50) {
         const proseEl = lastMessageEl?.querySelector('.prose, .markdown, [class*="markdown"]');
         responseText = proseEl?.textContent?.trim() || responseText;
-        log(`[DEBUG] Method 3 (prose/markdown): ${responseText.length} chars`, 'debug');
+        log(`[DEBUG] Method 3 (prose inside element): ${responseText.length} chars`, 'debug');
       }
 
-      log(`[DEBUG] Texte extrait: ${responseText.length} caractères`, 'debug');
+      // Method 4: Fallback - chercher directement le dernier élément .markdown.prose dans la page
+      if (!responseText || responseText.length < 50) {
+        const allMarkdown = document.querySelectorAll('.markdown.prose, .markdown-new-styling');
+        if (allMarkdown.length > 0) {
+          const lastMarkdown = allMarkdown[allMarkdown.length - 1];
+          responseText = lastMarkdown?.textContent?.trim() || responseText;
+          log(`[DEBUG] Method 4 (last .markdown.prose on page): ${responseText.length} chars`, 'debug');
+        }
+      }
+
+      // Method 5: Fallback - chercher le dernier data-message-author-role="assistant"
+      if (!responseText || responseText.length < 50) {
+        const allAssistant = document.querySelectorAll('[data-message-author-role="assistant"]');
+        if (allAssistant.length > 0) {
+          const lastAssistant = allAssistant[allAssistant.length - 1];
+          const markdownInside = lastAssistant.querySelector('.markdown, .prose, [class*="markdown"]');
+          responseText = markdownInside?.textContent?.trim() || lastAssistant?.textContent?.trim() || responseText;
+          log(`[DEBUG] Method 5 (last assistant message): ${responseText.length} chars`, 'debug');
+        }
+      }
+
+      log(`[DEBUG] Texte extrait final: ${responseText.length} caractères`, 'debug');
       log(`[DEBUG] Aperçu réponse: "${responseText.substring(0, 200)}..."`, 'debug');
 
       if (responseText && responseText.length > 30) {
