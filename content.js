@@ -1570,11 +1570,34 @@ async function startInterrogation(mode = 'standard') {
 
   log(`🔍 INTERROGATOIRE: Démarrage mode ${mode} (${prompts.length} questions)...`, 'info');
 
+  // Sauvegarder l'état initial dans chrome.storage pour persistance
+  await chrome.storage.local.set({
+    interrogationState: {
+      isRunning: true,
+      mode: mode,
+      current: 0,
+      total: prompts.length,
+      startedAt: new Date().toISOString()
+    }
+  });
+
   try {
     for (let i = 0; i < prompts.length; i++) {
       const promptData = prompts[i];
 
       log(`📤 Question ${i + 1}/${prompts.length}: ${promptData.id}`, 'info');
+
+      // Sauvegarder la progression dans storage
+      await chrome.storage.local.set({
+        interrogationState: {
+          isRunning: true,
+          mode: mode,
+          current: i + 1,
+          total: prompts.length,
+          currentQuestion: promptData.id,
+          startedAt: new Date().toISOString()
+        }
+      });
 
       // Report progress
       chrome.runtime.sendMessage({
@@ -1607,6 +1630,15 @@ async function startInterrogation(mode = 'standard') {
 
     isInterrogating = false;
 
+    // Marquer l'interrogation comme terminée dans storage
+    await chrome.storage.local.set({
+      interrogationState: {
+        isRunning: false,
+        completed: true,
+        completedAt: new Date().toISOString()
+      }
+    });
+
     chrome.runtime.sendMessage({
       action: 'interrogationComplete',
       results: interrogationResults
@@ -1617,6 +1649,10 @@ async function startInterrogation(mode = 'standard') {
 
   } catch (error) {
     isInterrogating = false;
+
+    // Effacer l'état en cas d'erreur
+    await chrome.storage.local.remove(['interrogationState']);
+
     log('❌ Erreur interrogatoire: ' + error.message, 'error');
     return { error: true, message: error.message };
   }

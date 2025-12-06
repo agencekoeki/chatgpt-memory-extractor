@@ -76,8 +76,8 @@ async function handleMessage(request, sender) {
       analysisQueue = [];
       await Storage.clearMemories(); // Clears memories, labels, and analysis
       await Storage.clearInterrogation(); // Clear interrogation results too
-      await chrome.storage.local.remove(['hasConsented']); // Clear consent
-      console.log('[Background] All data cleared (memories, analysis, interrogation, consent)');
+      await chrome.storage.local.remove(['hasConsented', 'interrogationState']); // Clear consent and state
+      console.log('[Background] All data cleared (memories, analysis, interrogation, consent, state)');
       return { success: true };
 
     case 'cancelAnalysis':

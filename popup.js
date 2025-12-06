@@ -53,7 +53,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ========== AUTO NAVIGATE ==========
 // Navigate to the appropriate screen based on current state
-function autoNavigate() {
+async function autoNavigate() {
+  // Check for ongoing interrogation first
+  const storage = await chrome.storage.local.get(['interrogationState']);
+  if (storage.interrogationState?.isRunning) {
+    isInterrogating = true;
+    goToScreen('extract');
+    updateExtractScreen();
+    // Show current progress
+    const state = storage.interrogationState;
+    handleInterrogationProgress({
+      current: state.current,
+      total: state.total,
+      question: state.currentQuestion
+    });
+    return;
+  }
+
   if (analysisResults?.success) {
     // Analysis done → go to complete screen
     goToScreen('complete');
@@ -83,9 +99,15 @@ async function loadState() {
     else if (keys?.openai) apiProvider = 'OpenAI (GPT)';
     else if (keys?.google) apiProvider = 'Google (Gemini)';
 
-    // Load consent status
-    const storage = await chrome.storage.local.get(['hasConsented']);
+    // Load consent status and interrogation state
+    const storage = await chrome.storage.local.get(['hasConsented', 'interrogationState']);
     hasConsented = storage.hasConsented || false;
+
+    // Check if interrogation is in progress
+    if (storage.interrogationState?.isRunning) {
+      isInterrogating = true;
+      console.log('[DEBUG] Interrogation en cours détectée:', storage.interrogationState);
+    }
 
     // Check if on ChatGPT
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
