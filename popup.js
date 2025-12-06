@@ -132,7 +132,10 @@ function setupListeners() {
     console.log('[DEBUG] btnToAnalysis CLICKED');
     handleContinueToAnalysis();
   });
-  document.getElementById('btnSkipExtract').addEventListener('click', () => goToScreen('analyze'));
+  document.getElementById('btnSkipExtract').addEventListener('click', () => {
+    console.log('[DEBUG] btnSkipExtract CLICKED');
+    handleContinueToAnalysis();
+  });
 
   // Interrogation checkbox toggle
   document.getElementById('enableInterrogation')?.addEventListener('change', (e) => {
