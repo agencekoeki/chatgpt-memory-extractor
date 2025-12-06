@@ -307,6 +307,10 @@
     }
 
     .landing-hook {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       font-size: 15px;
       color: var(--accent-light);
       text-transform: uppercase;
@@ -316,13 +320,25 @@
       animation: fadeInUp 0.8s ease 0.2s forwards;
     }
 
+    .hook-icon {
+      font-size: 24px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
     .landing-title {
-      font-size: 48px;
-      font-weight: 700;
+      font-size: 32px;
+      font-weight: 400;
       letter-spacing: -0.02em;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       opacity: 0;
-      animation: fadeInUp 0.8s ease 0.4s forwards;
+      animation: fadeInUp 0.8s ease 0.3s forwards;
+    }
+
+    .greeting-small {
+      display: block;
+      font-size: 20px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
     }
 
     .landing-title .name {
@@ -330,41 +346,216 @@
       background: linear-gradient(135deg, var(--accent-light) 0%, #818cf8 50%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      font-size: 64px;
+      font-size: 56px;
+      font-weight: 700;
     }
 
-    .landing-subtitle {
-      font-size: 22px;
-      color: var(--text-secondary);
-      margin-bottom: 40px;
-      line-height: 1.6;
+    /* SHOCK STAT - Le chiffre principal */
+    .shock-stat {
+      margin: 32px 0;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 0.5s forwards;
+    }
+
+    .shock-number {
+      font-size: 120px;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(180deg, var(--danger) 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: countPulse 0.5s ease-out;
+    }
+
+    .shock-label {
+      font-size: 18px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    @keyframes countPulse {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* PROFILE TEASER */
+    .profile-teaser {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
       opacity: 0;
       animation: fadeInUp 0.8s ease 0.6s forwards;
+    }
+
+    .psych-teaser {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 14px;
+    }
+
+    .teaser-label {
+      color: var(--text-muted);
+    }
+
+    .teaser-value {
+      color: var(--accent-light);
+      font-weight: 600;
+    }
+
+    .teaser-value.blur {
+      filter: blur(4px);
+      user-select: none;
+    }
+
+    /* EXPOSURE METER - Plus dramatique */
+    .exposure-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .exposure-icon {
+      font-size: 18px;
+    }
+
+    .exposure-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .exposure-marker {
+      position: absolute;
+      top: -8px;
+      width: 3px;
+      height: calc(100% + 16px);
+      background: white;
+      border-radius: 2px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
+      transition: left 1s ease-out;
+    }
+
+    .exposure-track {
+      position: relative;
     }
 
     .landing-stats {
       display: flex;
       justify-content: center;
-      gap: 48px;
-      margin-bottom: 48px;
+      gap: 24px;
+      margin: 32px 0;
       opacity: 0;
-      animation: fadeInUp 0.8s ease 0.8s forwards;
+      animation: fadeInUp 0.8s ease 0.9s forwards;
     }
 
     .landing-stat {
       text-align: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-width: 100px;
+    }
+
+    .landing-stat.warning {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .stat-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
     }
 
     .landing-stat-value {
-      font-size: 42px;
+      font-size: 32px;
       font-weight: 700;
-      color: var(--accent-light);
+      color: var(--text-primary);
+    }
+
+    .landing-stat.warning .landing-stat-value {
+      color: var(--danger);
     }
 
     .landing-stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* REVELATIONS PREVIEW */
+    .revelations-preview {
+      margin: 32px 0;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1s forwards;
+    }
+
+    .revelation-title {
       font-size: 14px;
       color: var(--text-muted);
-      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .revelations-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .revelation-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .revelation-chip .blur {
+      filter: blur(4px);
+      user-select: none;
+      color: var(--accent-light);
+    }
+
+    /* PRIVACY BADGE */
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 30px;
+      font-size: 13px;
+      color: var(--success);
+      margin-top: 24px;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1.3s forwards;
+    }
+
+    .privacy-badge svg {
+      flex-shrink: 0;
     }
 
     .landing-cta {
@@ -1437,44 +1628,73 @@
   <div class="landing" id="landing">
     <div class="landing-glow"></div>
     <div class="landing-content">
-      <div class="landing-hook">Ce que l'IA sait de toi</div>
-      <h1 class="landing-title">
-        Bonjour,
-        <span class="name" id="landingName">...</span>
-      </h1>
-      <p class="landing-subtitle">
-        ChatGPT a memorise <strong id="landingCount" class="counter-animate">0</strong> informations sur toi.<br>
-        Certaines sont... surprenantes.
-      </p>
-
-      <!-- ARCHETYPE BADGE -->
-      <div class="archetype-badge" id="archetypeBadge">
-        Chargement...
+      <!-- HOOK PERSONNALISE -->
+      <div class="landing-hook">
+        <span class="hook-icon">👁️</span>
+        Ce que l'IA sait de toi
       </div>
 
-      <!-- EXPOSURE METER -->
+      <h1 class="landing-title">
+        <span class="greeting-small">Bonjour,</span>
+        <span class="name" id="landingName">...</span>
+      </h1>
+
+      <!-- STAT CHOC PRINCIPALE -->
+      <div class="shock-stat">
+        <div class="shock-number" id="landingCount">0</div>
+        <div class="shock-label">informations memorisees</div>
+      </div>
+
+      <!-- ARCHETYPE BADGE + PROFIL PSYCHO TEASER -->
+      <div class="profile-teaser">
+        <div class="archetype-badge" id="archetypeBadge">Chargement...</div>
+        <div class="psych-teaser" id="psychTeaser">
+          <span class="teaser-label">Profil detecte:</span>
+          <span class="teaser-value blur" id="psychTeaserValue">???????</span>
+        </div>
+      </div>
+
+      <!-- EXPOSURE METER - PLUS DRAMATIQUE -->
       <div class="exposure-meter">
-        <div class="exposure-label">
-          <span class="exposure-title">Niveau d'exposition</span>
-          <span class="exposure-value" id="exposureValue">--%</span>
+        <div class="exposure-header">
+          <span class="exposure-icon">⚠️</span>
+          <span class="exposure-title">Indice d'exposition numerique</span>
         </div>
         <div class="exposure-track">
           <div class="exposure-fill" id="exposureFill" style="width: 0%"></div>
+          <div class="exposure-marker" id="exposureMarker"></div>
+        </div>
+        <div class="exposure-labels">
+          <span>Discret</span>
+          <span class="exposure-value" id="exposureValue">--%</span>
+          <span>Tres expose</span>
         </div>
       </div>
 
+      <!-- STATS GRID - PLUS IMPACTANT -->
       <div class="landing-stats">
-        <div class="landing-stat">
-          <div class="landing-stat-value" id="landingPublic">-</div>
-          <div class="landing-stat-label">Infos publiques</div>
-        </div>
-        <div class="landing-stat">
+        <div class="landing-stat warning">
+          <div class="stat-icon">🔴</div>
           <div class="landing-stat-value" id="landingPrivate">-</div>
-          <div class="landing-stat-label">Infos sensibles</div>
+          <div class="landing-stat-label">donnees sensibles</div>
         </div>
         <div class="landing-stat">
+          <div class="stat-icon">🟢</div>
+          <div class="landing-stat-value" id="landingPublic">-</div>
+          <div class="landing-stat-label">infos publiques</div>
+        </div>
+        <div class="landing-stat">
+          <div class="stat-icon">🧠</div>
           <div class="landing-stat-value" id="landingDomains">-</div>
-          <div class="landing-stat-label">Domaines</div>
+          <div class="landing-stat-label">domaines analyses</div>
+        </div>
+      </div>
+
+      <!-- REVELATIONS TEASER -->
+      <div class="revelations-preview" id="revelationsPreview">
+        <div class="revelation-title">ChatGPT connait deja...</div>
+        <div class="revelations-grid" id="revelationsGrid">
+          <!-- Filled by JS -->
         </div>
       </div>
 
@@ -1499,16 +1719,17 @@
         </button>
       </div>
 
-      <!-- TOP REVELATIONS -->
-      <div class="revelations" id="revelations">
-        <div class="revelations-title">L'IA a detecte que tu...</div>
-        <div id="revelationsList">
-          <!-- Filled by JS -->
-        </div>
+      <!-- PRIVACY BADGE - RASSURANT -->
+      <div class="privacy-badge">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <span>Aucune donnee captee par nous - tout reste entre vous et l'IA</span>
       </div>
 
       <p class="landing-disclaimer">
-        Analyse basee sur tes conversations avec ChatGPT
+        Analyse 100% privee - Vos donnees ne quittent jamais votre navigateur sauf vers l'API IA de votre choix
       </p>
     </div>
   </div>

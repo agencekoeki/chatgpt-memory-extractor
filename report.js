@@ -29,7 +29,7 @@ function populateLanding(results, memories) {
   const firstName = results?.persona?.mask?.profile?.firstName || 'Visiteur';
   document.getElementById('landingName').textContent = firstName;
 
-  // Memory count with animation
+  // Memory count with animation - LE CHIFFRE CHOC
   const count = results?.memoriesCount || memories.length || 0;
   animateCounter('landingCount', count);
 
@@ -60,8 +60,23 @@ function populateLanding(results, memories) {
   const archetype = generateArchetype(results);
   document.getElementById('archetypeBadge').textContent = archetype;
 
-  // Generate revelations
-  generateRevelations(results);
+  // PSYCH TEASER - Teaser flou pour creer curiosite
+  const psychProfile = results?.persona?.psychProfile;
+  const psychTeaserEl = document.getElementById('psychTeaserValue');
+  if (psychTeaserEl && psychProfile) {
+    const teasers = [];
+    if (psychProfile.psychology?.brainType?.dominant) teasers.push(psychProfile.psychology.brainType.dominant);
+    if (psychProfile.archetype?.jungian) teasers.push(psychProfile.archetype.jungian);
+    if (psychProfile.motivations?.soncas?.primary) teasers.push(psychProfile.motivations.soncas.primary);
+
+    if (teasers.length > 0) {
+      psychTeaserEl.textContent = teasers.slice(0, 2).join(' • ');
+      psychTeaserEl.classList.add('blur'); // Keep blurred for curiosity
+    }
+  }
+
+  // REVELATIONS GRID - Chips flouees pour teaser
+  generateRevelationsGrid(results);
 }
 
 // Animated counter
@@ -95,6 +110,7 @@ function animateCounter(elementId, target) {
 function setExposureScore(score) {
   const valueEl = document.getElementById('exposureValue');
   const fillEl = document.getElementById('exposureFill');
+  const markerEl = document.getElementById('exposureMarker');
 
   if (!valueEl || !fillEl) return;
 
@@ -107,11 +123,66 @@ function setExposureScore(score) {
   valueEl.textContent = score + '%';
   valueEl.className = 'exposure-value ' + level;
 
-  // Animate fill after a delay
+  // Animate fill and marker after a delay
   setTimeout(() => {
     fillEl.className = 'exposure-fill ' + level;
     fillEl.style.width = score + '%';
+    if (markerEl) {
+      markerEl.style.left = score + '%';
+    }
   }, 500);
+}
+
+// Generate revelations grid with blurred chips
+function generateRevelationsGrid(results) {
+  const container = document.getElementById('revelationsGrid');
+  if (!container) return;
+
+  const chips = [];
+  const mask = results?.persona?.mask;
+  const stats = results?.statistics;
+  const psychProfile = results?.persona?.psychProfile;
+
+  // From persona
+  if (mask?.profile?.location) {
+    chips.push({ icon: '📍', label: 'Ta ville:', value: mask.profile.location });
+  }
+  if (mask?.expertiseDomains?.[0]) {
+    chips.push({ icon: '🎯', label: 'Expert en:', value: mask.expertiseDomains[0] });
+  }
+  if (mask?.bias) {
+    chips.push({ icon: '💭', label: 'Ton opinion:', value: truncate(mask.bias, 20) });
+  }
+
+  // From stats
+  if (stats?.topTags?.[0]) {
+    chips.push({ icon: '🔥', label: 'Passion:', value: stats.topTags[0].tag });
+  }
+
+  // From psych profile
+  if (psychProfile?.archetype?.jungian) {
+    chips.push({ icon: '🎭', label: 'Archetype:', value: psychProfile.archetype.jungian });
+  }
+  if (psychProfile?.motivations?.soncas?.primary) {
+    chips.push({ icon: '🧲', label: 'Levier:', value: psychProfile.motivations.soncas.primary });
+  }
+  if (psychProfile?.vulnerabilities?.stressType) {
+    chips.push({ icon: '⚡', label: 'Type:', value: 'Type ' + psychProfile.vulnerabilities.stressType });
+  }
+
+  // From backstory
+  if (mask?.limits?.[0]) {
+    chips.push({ icon: '🚫', label: 'Limite:', value: truncate(mask.limits[0], 15) });
+  }
+
+  // Render chips (blur values for teaser effect)
+  container.innerHTML = chips.slice(0, 6).map(chip => `
+    <div class="revelation-chip">
+      <span>${chip.icon}</span>
+      <span>${chip.label}</span>
+      <span class="blur">${escapeHtml(chip.value)}</span>
+    </div>
+  `).join('');
 }
 
 // Generate archetype based on data
