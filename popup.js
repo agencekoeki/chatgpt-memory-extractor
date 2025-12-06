@@ -57,12 +57,10 @@ function autoNavigate() {
   if (analysisResults?.success) {
     // Analysis done → go to complete screen
     goToScreen('complete');
-  } else if (memories.length > 0 && hasApiKeys) {
-    // Has memories and API keys → go to analyze screen
-    goToScreen('analyze');
   } else if (memories.length > 0) {
-    // Has memories but no API → go to analyze (will show API config)
-    goToScreen('analyze');
+    // Has memories → go to EXTRACT screen (not analyze!)
+    // This allows the user to see the interrogation option
+    goToScreen('extract');
   }
   // Otherwise stay on splash
 }
@@ -363,19 +361,26 @@ async function handleContinueToAnalysis() {
   console.log('[DEBUG] Checkbox checked:', enableInterrogation);
   console.log('[DEBUG] isOnChatGPT:', isOnChatGPT);
 
-  if (enableInterrogation && isOnChatGPT) {
+  // Re-check if on ChatGPT (might have changed)
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentlyOnChatGPT = tab?.url?.includes('chatgpt.com');
+  console.log('[DEBUG] Current tab URL:', tab?.url);
+  console.log('[DEBUG] currentlyOnChatGPT:', currentlyOnChatGPT);
+
+  if (enableInterrogation && currentlyOnChatGPT) {
     // Start interrogation first
     console.log('[DEBUG] ✅ Starting interrogation...');
     try {
       await startInterrogation();
-      console.log('[DEBUG] Interrogation function returned');
+      console.log('[DEBUG] Interrogation started, waiting for completion message...');
+      // Note: goToScreen('analyze') will be called by handleInterrogationComplete
     } catch (err) {
       console.error('[DEBUG] Interrogation error:', err);
       goToScreen('analyze');
     }
   } else {
     // Go directly to analysis
-    console.log('[DEBUG] ❌ Skipping interrogation:', { enableInterrogation, isOnChatGPT });
+    console.log('[DEBUG] ❌ Skipping interrogation:', { enableInterrogation, currentlyOnChatGPT, isOnChatGPT });
     goToScreen('analyze');
   }
 }
@@ -628,18 +633,21 @@ async function restart() {
     // Clear all data in background
     await chrome.runtime.sendMessage({ action: 'clearAll' });
 
-    // Reset local state
+    // Reset ALL local state
     memories = [];
     analysisResults = null;
     isExtracting = false;
     isAnalyzing = false;
+    isInterrogating = false;
+    interrogationResults = [];
+    hasConsented = false;
 
     // Update UI
     updateSplashScreen();
     goToScreen('splash');
 
-    // Optional: show success feedback
-    console.log('[Popup] Full reset complete');
+    // Success feedback
+    console.log('[Popup] Full reset complete (memories, analysis, interrogation, consent)');
 
   } catch (e) {
     console.error('Reset error:', e);
