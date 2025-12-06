@@ -1,5 +1,24 @@
-// ChatGPT Memory Extractor - Popup v4.5
-// Multi-screen immersive flow
+// What GPT Knows - Popup v5.0
+// Multi-screen immersive flow with i18n support
+
+// ========== I18N HELPER ==========
+function t(key, substitutions = []) {
+  if (chrome?.i18n?.getMessage) {
+    const msg = chrome.i18n.getMessage(key, substitutions);
+    return msg || key;
+  }
+  return key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const msg = t(key);
+    if (msg && msg !== key) {
+      el.textContent = msg;
+    }
+  });
+}
 
 // ========== STATE ==========
 let currentScreen = 'splash';
@@ -25,6 +44,7 @@ const screens = {
 
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', async () => {
+  applyI18n();
   await loadState();
   setupListeners();
   updateSplashScreen();
@@ -175,16 +195,16 @@ function updateSplashScreen() {
     const lastName = profile.lastName || '';
 
     initials.textContent = (firstName[0] || '?') + (lastName[0] || '');
-    name.textContent = `${firstName} ${lastName}`.trim() || 'Votre Persona';
-    tagline.textContent = analysisResults.persona.mask.mission || 'Decouvrez qui vous etes selon ChatGPT';
+    name.textContent = `${firstName} ${lastName}`.trim() || t('splash_yourPersona');
+    tagline.textContent = analysisResults.persona.mask.mission || t('splash_tagline');
   } else if (memories.length > 0) {
     initials.textContent = '?';
-    name.textContent = 'Votre Persona';
-    tagline.textContent = `${memories.length} souvenirs prets a analyser`;
+    name.textContent = t('splash_yourPersona');
+    tagline.textContent = t('extract_done_count', [memories.length.toString()]);
   } else {
     initials.textContent = '?';
-    name.textContent = 'Votre Persona';
-    tagline.textContent = 'Decouvrez qui vous etes selon ChatGPT';
+    name.textContent = t('splash_yourPersona');
+    tagline.textContent = t('splash_tagline');
   }
 }
 
@@ -214,7 +234,7 @@ function updateExtractScreen() {
     btnContinue.disabled = true;
   } else if (memories.length > 0) {
     done.classList.remove('hidden');
-    document.getElementById('extractDoneCount').textContent = `${memories.length} souvenirs extraits`;
+    document.getElementById('extractDoneCount').textContent = t('extract_done_count', [memories.length.toString()]);
     btnContinue.disabled = false;
     btnSkip.classList.remove('hidden');
   } else if (isOnChatGPT) {
@@ -262,7 +282,7 @@ function updateAnalyzeScreen() {
     btnReport.disabled = true;
   } else {
     ready.classList.remove('hidden');
-    document.getElementById('analyzeReadyCount').textContent = `${memories.length} souvenirs a traiter`;
+    document.getElementById('analyzeReadyCount').textContent = t('analyze_ready_count', [memories.length.toString()]);
     btnReport.disabled = true;
 
     // Show Mode MAX option if both Anthropic and Google keys are available
@@ -293,11 +313,11 @@ function updateCompleteScreen() {
 
   if (analysisResults?.persona?.mask?.profile) {
     const profile = analysisResults.persona.mask.profile;
-    name.textContent = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Votre Persona';
-    tagline.textContent = 'est pret a etre decouvert';
+    name.textContent = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || t('complete_title');
+    tagline.textContent = t('complete_subtitle');
   } else {
-    name.textContent = 'Votre Persona';
-    tagline.textContent = 'est pret a etre decouvert';
+    name.textContent = t('complete_title');
+    tagline.textContent = t('complete_subtitle');
   }
 }
 
@@ -314,11 +334,11 @@ async function startExtraction() {
     const response = await sendTabMessage(tab.id, { action: 'autoExtract' });
 
     if (!response) {
-      throw new Error('Pas de reponse - Rafraichissez la page');
+      throw new Error(t('error_extraction'));
     }
 
     if (response.error) {
-      throw new Error(response.message || 'Echec de l\'extraction');
+      throw new Error(response.message || t('error_extraction'));
     }
 
   } catch (error) {
@@ -361,11 +381,11 @@ async function startInterrogation() {
     });
 
     if (!response) {
-      throw new Error('Pas de reponse - Rafraichissez la page');
+      throw new Error(t('error_extraction'));
     }
 
     if (response.error) {
-      throw new Error(response.message || 'Echec de l\'interrogatoire');
+      throw new Error(response.message || t('error_extraction'));
     }
 
   } catch (error) {
@@ -563,14 +583,8 @@ function openReport() {
 }
 
 async function restart() {
-  const confirmed = confirm(
-    '⚠️ Tout reinitialiser ?\n\n' +
-    'Cela va supprimer :\n' +
-    '• Toutes les memoires extraites\n' +
-    '• Le taggage E-E-A-T\n' +
-    '• L\'analyse persona\n\n' +
-    'Tu devras tout re-extraire depuis ChatGPT.'
-  );
+  const confirmMsg = `⚠️ ${t('reset_confirm_title')}\n\n${t('reset_confirm_text')}`;
+  const confirmed = confirm(confirmMsg);
 
   if (!confirmed) return;
 
@@ -593,7 +607,7 @@ async function restart() {
 
   } catch (e) {
     console.error('Reset error:', e);
-    alert('Erreur lors de la reinitialisation.');
+    alert(t('reset_error'));
   }
 }
 

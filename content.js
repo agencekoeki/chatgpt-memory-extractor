@@ -79,6 +79,72 @@ function diagAllButtons(container = document) {
   return results;
 }
 
+// ========== I18N - CHATGPT LABELS ==========
+// Labels used to navigate ChatGPT UI in different languages
+const CHATGPT_LABELS = {
+  en: {
+    profileMenu: ['Open profile menu', 'profile menu', 'Profile'],
+    settings: ['Settings'],
+    personalization: ['Personalization', 'Customize'],
+    memory: ['Memory', 'Memories', 'Memorized'],
+    manage: ['Manage', 'View', 'Show', 'View all'],
+    personalizationTab: ['personalization', 'customization', 'customize']
+  },
+  fr: {
+    profileMenu: ['Ouvrir le menu du profil', 'menu du profil', 'Profil'],
+    settings: ['Paramètres'],
+    personalization: ['Personnalisation', 'Remplissage'],
+    memory: ['Mémoire', 'Éléments mémorisés', 'mémorisés', 'Remplissage'],
+    manage: ['Gérer', 'Voir', 'Afficher', 'Voir tout'],
+    personalizationTab: ['personnalisation', 'personnalisé']
+  }
+};
+
+// Detect ChatGPT page language based on visible text
+function detectChatGPTLanguage() {
+  const pageText = document.body?.textContent || '';
+
+  const frIndicators = [
+    'Éléments mémorisés', 'Remplissage', 'Personnalisation',
+    'Nouveau chat', 'Paramètres', 'Ouvrir le menu'
+  ];
+
+  const enIndicators = [
+    'Memories', 'Personalization', 'New chat',
+    'Settings', 'Open profile menu'
+  ];
+
+  let frScore = 0;
+  let enScore = 0;
+
+  for (const indicator of frIndicators) {
+    if (pageText.includes(indicator)) frScore++;
+  }
+
+  for (const indicator of enIndicators) {
+    if (pageText.includes(indicator)) enScore++;
+  }
+
+  const lang = frScore > enScore ? 'fr' : 'en';
+  log(`ChatGPT language detected: ${lang} (FR:${frScore} EN:${enScore})`, 'debug');
+  return lang;
+}
+
+// Get current language labels
+function getLabels() {
+  const lang = detectChatGPTLanguage();
+  return CHATGPT_LABELS[lang] || CHATGPT_LABELS.en;
+}
+
+// Check if text matches any label in the array (case-insensitive)
+function matchesLabel(text, labelArray) {
+  const lowerText = text?.toLowerCase() || '';
+  return labelArray.some(label =>
+    lowerText === label.toLowerCase() ||
+    lowerText.includes(label.toLowerCase())
+  );
+}
+
 // ========== UTILITIES ==========
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -289,11 +355,13 @@ async function step1_findUserMenu() {
 
 // ========== STEP 2: FIND SETTINGS OR PERSONALIZATION IN MENU ==========
 async function step2_findSettings() {
-  log('========== ÉTAPE 2: BOUTON PARAMÈTRES/PERSONNALISATION ==========', 'info');
+  log('========== STEP 2: SETTINGS/PERSONALIZATION BUTTON ==========', 'info');
+
+  const labels = getLabels();
 
   // Cherche les menuitems visibles
   const menuItems = document.querySelectorAll('[role="menuitem"], [role="menu"] a, [role="menu"] button, [data-radix-menu-content] a, [data-radix-menu-content] button');
-  log(`${menuItems.length} items de menu trouvés`, 'debug');
+  log(`${menuItems.length} menu items found`, 'debug');
 
   let personnalisationBtn = null;
   let parametresBtn = null;
@@ -303,50 +371,52 @@ async function step2_findSettings() {
       const text = item.textContent?.trim() || '';
       log(`  menu[${i}]: "${text.substring(0, 40)}"`, 'debug');
 
-      // Cherche "Personnalisation" en priorité (match exact ou presque)
-      if (text.toLowerCase() === 'personnalisation' || text.toLowerCase() === 'personalization') {
+      // Look for Personalization (priority)
+      if (matchesLabel(text, labels.personalization)) {
         personnalisationBtn = item;
-        log(`    >> PERSONNALISATION trouvé!`, 'success');
+        log(`    >> PERSONALIZATION found!`, 'success');
       }
-      // Cherche "Paramètres" EXACT (pas "Paramètres de l'espace de travail")
-      else if ((text.toLowerCase() === 'paramètres' || text.toLowerCase() === 'settings') && !parametresBtn) {
+      // Look for Settings (fallback)
+      else if (matchesLabel(text, labels.settings) && !parametresBtn) {
         parametresBtn = item;
-        log(`    >> PARAMÈTRES trouvé!`, 'success');
+        log(`    >> SETTINGS found!`, 'success');
       }
     }
   });
 
-  // Priorité: Personnalisation > Paramètres
+  // Priority: Personalization > Settings
   if (personnalisationBtn) {
-    log(`RÉSULTAT ÉTAPE 2: Personnalisation trouvé directement dans le menu!`, 'success');
+    log(`STEP 2 RESULT: Personalization found directly in menu!`, 'success');
     return { success: true, element: personnalisationBtn, isPersonalization: true };
   }
 
   if (parametresBtn) {
-    log(`RÉSULTAT ÉTAPE 2: Paramètres trouvé: "${parametresBtn.textContent?.trim()}"`, 'success');
+    log(`STEP 2 RESULT: Settings found: "${parametresBtn.textContent?.trim()}"`, 'success');
     return { success: true, element: parametresBtn, isPersonalization: false };
   }
 
-  log(`RÉSULTAT ÉTAPE 2: Aucun bouton trouvé`, 'error');
+  log(`STEP 2 RESULT: No button found`, 'error');
   return { success: false, element: null };
 }
 
 // ========== STEP 3: FIND PERSONALIZATION TAB ==========
 async function step3_findPersonalization() {
-  log('========== ÉTAPE 3: ONGLET PERSONNALISATION ==========', 'info');
+  log('========== STEP 3: PERSONALIZATION TAB ==========', 'info');
 
-  // Cherche tous les onglets/tabs
+  const labels = getLabels();
+
+  // Look for all tabs
   const tabs = document.querySelectorAll('[role="tab"], [role="tablist"] button, button[class*="tab"]');
-  log(`${tabs.length} onglets potentiels trouvés`, 'debug');
+  log(`${tabs.length} potential tabs found`, 'debug');
 
   tabs.forEach((tab, i) => {
     log(`  tab[${i}]: "${tab.textContent?.trim()?.substring(0, 40)}"`, 'debug');
   });
 
-  // Cherche aussi les boutons dans la modale settings
+  // Also look for buttons in the settings modal
   const dialog = document.querySelector('[role="dialog"]');
   if (dialog) {
-    log('Modale/dialog trouvée, boutons dedans:', 'debug');
+    log('Modal/dialog found, buttons inside:', 'debug');
     const dialogBtns = dialog.querySelectorAll('button, [role="button"]');
     dialogBtns.forEach((btn, i) => {
       if (btn.offsetHeight > 0) {
@@ -355,36 +425,34 @@ async function step3_findPersonalization() {
     });
   }
 
-  const searchTexts = ['personnalisation', 'personalization', 'personnalisé', 'customization'];
-  const personalizationTab = findButtonByText(searchTexts);
+  const personalizationTab = findButtonByText(labels.personalizationTab);
 
   if (personalizationTab) {
-    log(`RÉSULTAT ÉTAPE 3: Onglet trouvé: "${personalizationTab.textContent?.trim()}"`, 'success');
+    log(`STEP 3 RESULT: Tab found: "${personalizationTab.textContent?.trim()}"`, 'success');
     return { success: true, element: personalizationTab };
   } else {
-    log(`RÉSULTAT ÉTAPE 3: Onglet Personnalisation NON trouvé`, 'error');
+    log(`STEP 3 RESULT: Personalization tab NOT found`, 'error');
     return { success: false, element: null };
   }
 }
 
 // ========== STEP 4: FIND MEMORY SECTION ==========
 async function step4_findMemorySection() {
-  log('========== ÉTAPE 4: SECTION MÉMOIRE ==========', 'info');
+  log('========== STEP 4: MEMORY SECTION ==========', 'info');
 
-  const searchTexts = ['mémoire', 'memory', 'remplissage', 'filling', 'mémorisé', 'memorized'];
-  log(`Recherche de texte: ${searchTexts.join(', ')}`, 'debug');
+  const labels = getLabels();
+  const searchTexts = labels.memory;
+  log(`Searching for: ${searchTexts.join(', ')}`, 'debug');
 
-  // Cherche dans différents types d'éléments
+  // Look in different element types
   const containers = ['div', 'span', 'h2', 'h3', 'h4', 'p', 'label'];
 
   for (const tag of containers) {
     const elements = document.querySelectorAll(tag);
     for (const el of elements) {
-      const text = el.textContent?.trim().toLowerCase() || '';
-      for (const search of searchTexts) {
-        if (text.includes(search.toLowerCase()) && text.length < 100) {
-          log(`  ✓ Trouvé dans <${tag}>: "${el.textContent?.trim()?.substring(0, 50)}"`, 'success');
-        }
+      const text = el.textContent?.trim() || '';
+      if (matchesLabel(text, searchTexts) && text.length < 100) {
+        log(`  Found in <${tag}>: "${text.substring(0, 50)}"`, 'success');
       }
     }
   }
@@ -392,19 +460,21 @@ async function step4_findMemorySection() {
   const memorySection = findByText(searchTexts, 'div, span, h2, h3, h4, label');
 
   if (memorySection) {
-    log(`RÉSULTAT ÉTAPE 4: Section mémoire trouvée`, 'success');
+    log(`STEP 4 RESULT: Memory section found`, 'success');
     return { success: true, element: memorySection };
   } else {
-    log(`RÉSULTAT ÉTAPE 4: Section mémoire NON trouvée`, 'error');
+    log(`STEP 4 RESULT: Memory section NOT found`, 'error');
     return { success: false, element: null };
   }
 }
 
 // ========== STEP 5: FIND MANAGE BUTTON ==========
 async function step5_findManageButton() {
-  log('========== ÉTAPE 5: BOUTON GÉRER ==========', 'info');
+  log('========== STEP 5: MANAGE BUTTON ==========', 'info');
 
-  // Sélecteurs spécifiques
+  const labels = getLabels();
+
+  // Specific selectors
   const selectors = [
     '[data-testid*="memory"]',
     '[data-testid*="manage"]',
@@ -413,40 +483,39 @@ async function step5_findManageButton() {
     'button[aria-label*="manage"]',
   ];
 
-  log('Recherche avec sélecteurs:', 'debug');
+  log('Searching with selectors:', 'debug');
   for (const sel of selectors) {
     const el = document.querySelector(sel);
     if (el) {
-      log(`  ✓ ${sel}: "${el.textContent?.trim()?.substring(0, 40)}"`, 'success');
+      log(`  ${sel}: "${el.textContent?.trim()?.substring(0, 40)}"`, 'success');
     }
   }
 
-  // Recherche par texte
-  const searchTexts = ['gérer', 'manage', 'voir', 'view', 'afficher', 'show'];
-  log(`Recherche par texte: ${searchTexts.join(', ')}`, 'debug');
+  // Text search
+  log(`Searching for: ${labels.manage.join(', ')}`, 'debug');
 
-  const manageBtn = findButtonByText(searchTexts);
+  const manageBtn = findButtonByText(labels.manage);
 
   if (manageBtn) {
-    log(`RÉSULTAT ÉTAPE 5: Bouton Gérer trouvé: "${manageBtn.textContent?.trim()}"`, 'success');
+    log(`STEP 5 RESULT: Manage button found: "${manageBtn.textContent?.trim()}"`, 'success');
     return { success: true, element: manageBtn };
   }
 
-  // Fallback: cherche un bouton près de la section mémoire
-  log('Fallback: boutons près de "Mémoire"/"Memory":', 'debug');
+  // Fallback: look for button near memory section
+  log('Fallback: buttons near Memory section:', 'debug');
   const allButtons = [...document.querySelectorAll('button')];
   const memoryBtn = allButtons.find(b => {
     const parent = b.closest('div');
-    const parentText = parent?.textContent?.toLowerCase() || '';
-    return parentText.includes('mémoire') || parentText.includes('memory') || parentText.includes('remplissage');
+    const parentText = parent?.textContent || '';
+    return matchesLabel(parentText, labels.memory);
   });
 
   if (memoryBtn) {
-    log(`  ✓ Bouton trouvé via parent: "${memoryBtn.textContent?.trim()?.substring(0, 40)}"`, 'success');
+    log(`  Button found via parent: "${memoryBtn.textContent?.trim()?.substring(0, 40)}"`, 'success');
     return { success: true, element: memoryBtn };
   }
 
-  log(`RÉSULTAT ÉTAPE 5: Bouton Gérer NON trouvé`, 'error');
+  log(`STEP 5 RESULT: Manage button NOT found`, 'error');
   return { success: false, element: null };
 }
 
@@ -586,74 +655,70 @@ async function navigateToMemories() {
 
 // ========== EXTRACTION ==========
 async function extractMemories() {
-  log('🔍 Extraction des éléments mémorisés...', 'info');
-  updateStatus('loading', 'Extraction en cours...');
+  const labels = getLabels();
+  log('Extracting memories...', 'info');
+  updateStatus('loading', 'Extraction in progress...');
 
-  // Cherche la modale des mémoires avec différents sélecteurs
+  // Helper to check if text contains memory labels
+  const hasMemoryContent = (text) => matchesLabel(text || '', labels.memory);
+
+  // Look for memories modal with different selectors
   let modal = null;
 
-  // MÉTHODE 1: Sélecteur exact data-testid (trouvé dans DevTools)
+  // METHOD 1: Exact data-testid selector
   modal = document.querySelector('[data-testid="modal-memories"]');
   if (modal) {
-    log('Modale trouvée via data-testid="modal-memories"', 'success');
+    log('Modal found via data-testid="modal-memories"', 'success');
   }
 
-  // MÉTHODE 2: Popover Radix avec titre mémoires
+  // METHOD 2: Radix popover with memory title
   if (!modal) {
     const radixPopovers = document.querySelectorAll('[data-radix-popper-content-wrapper] > div, [data-radix-menu-content]');
-    log(`${radixPopovers.length} radix popover(s) trouvé(s)`, 'debug');
+    log(`${radixPopovers.length} radix popover(s) found`, 'debug');
 
     for (const pop of radixPopovers) {
-      const hasMemoryTitle = pop.textContent?.includes('Éléments mémorisés') ||
-                             pop.textContent?.includes('Memorized') ||
-                             pop.textContent?.includes('Remplissage');
-      if (hasMemoryTitle && pop.offsetHeight > 0) {
+      if (hasMemoryContent(pop.textContent) && pop.offsetHeight > 0) {
         modal = pop;
-        log('Modale trouvée via Radix popover', 'success');
+        log('Modal found via Radix popover', 'success');
         break;
       }
     }
   }
 
-  // MÉTHODE 3: Tout élément fixed/absolute avec contenu mémoire
+  // METHOD 3: Fixed/absolute element with memory content
   if (!modal) {
     const fixedElements = document.querySelectorAll('.fixed, .absolute, [class*="popover"], [class*="modal"]');
-    log(`${fixedElements.length} éléments fixed/absolute trouvés`, 'debug');
+    log(`${fixedElements.length} fixed/absolute elements found`, 'debug');
 
     for (const el of fixedElements) {
       if (el.offsetHeight > 200 && el.offsetWidth > 200) {
-        const hasMemoryContent = el.textContent?.includes('Éléments mémorisés') ||
-                                 el.textContent?.includes('Remplissage');
         const hasTable = el.querySelector('table');
-        if (hasMemoryContent && hasTable) {
+        if (hasMemoryContent(el.textContent) && hasTable) {
           modal = el;
-          log('Modale trouvée via fixed/absolute + table', 'success');
+          log('Modal found via fixed/absolute + table', 'success');
           break;
         }
       }
     }
   }
 
-  // MÉTHODE 4: Cherche une table avec le bon contenu (visible memories)
+  // METHOD 4: Table with memory content
   if (!modal) {
     const tables = document.querySelectorAll('table');
-    log(`${tables.length} table(s) trouvée(s)`, 'debug');
+    log(`${tables.length} table(s) found`, 'debug');
 
     for (const table of tables) {
       const rows = table.querySelectorAll('tr');
-      // La table des mémoires a plusieurs lignes avec du texte long
       if (rows.length >= 2) {
         const firstRowText = rows[0]?.textContent?.trim() || '';
-        // Les mémoires commencent souvent par un nom ou "Le/La/Les"
-        if (firstRowText.length > 50 && !firstRowText.includes('Faire référence')) {
-          // Remonter pour trouver le container
+        if (firstRowText.length > 50) {
           modal = table.closest('[class*="fixed"]') ||
                   table.closest('[class*="absolute"]') ||
                   table.closest('[class*="popover"]') ||
                   table.closest('[data-state="open"]') ||
                   table.parentElement?.parentElement?.parentElement;
           if (modal) {
-            log(`Modale trouvée via table avec ${rows.length} lignes`, 'success');
+            log(`Modal found via table with ${rows.length} rows`, 'success');
             break;
           }
         }
@@ -661,28 +726,27 @@ async function extractMemories() {
     }
   }
 
-  // MÉTHODE 5 (fallback): role="dialog"
+  // METHOD 5 (fallback): role="dialog"
   if (!modal) {
     const dialogs = document.querySelectorAll('[role="dialog"]');
     for (const dialog of dialogs) {
-      if (dialog.textContent?.includes('Éléments mémorisés') || dialog.textContent?.includes('Remplissage')) {
+      if (hasMemoryContent(dialog.textContent)) {
         modal = dialog;
-        log('Modale trouvée via role="dialog"', 'success');
+        log('Modal found via role="dialog"', 'success');
         break;
       }
     }
   }
 
-  // MÉTHODE 6 (dernier recours): chercher directement la table visible
+  // METHOD 6 (last resort): direct visible table
   if (!modal) {
     const allTables = document.querySelectorAll('table');
     for (const table of allTables) {
       if (table.offsetHeight > 100 && table.querySelectorAll('tr').length > 1) {
-        // Vérifier que c'est bien des mémoires
         const tableText = table.textContent || '';
-        if (tableText.length > 200 && !tableText.includes('Faire référence')) {
+        if (tableText.length > 200) {
           modal = table;
-          log('Modale trouvée via table directe (dernier recours)', 'success');
+          log('Modal found via direct table (last resort)', 'success');
           break;
         }
       }
@@ -690,14 +754,13 @@ async function extractMemories() {
   }
 
   if (!modal) {
-    log('❌ Aucune modale mémoires trouvée après 6 méthodes', 'error');
-    // Log ce qui existe sur la page pour debug
-    log(`Page contient: ${document.querySelectorAll('table').length} tables, ${document.querySelectorAll('[role="dialog"]').length} dialogs`, 'debug');
-    return { success: false, error: 'Modale mémoires non trouvée', memories: [] };
+    log('No memories modal found after 6 methods', 'error');
+    log(`Page contains: ${document.querySelectorAll('table').length} tables, ${document.querySelectorAll('[role="dialog"]').length} dialogs`, 'debug');
+    return { success: false, error: 'Memories modal not found', memories: [] };
   }
 
-  log('Modale "Éléments mémorisés" détectée', 'success');
-  log(`Contenu modale (200 chars): "${modal.textContent?.substring(0, 200)}"`, 'debug');
+  log('Memories modal detected', 'success');
+  log(`Modal content (200 chars): "${modal.textContent?.substring(0, 200)}"`, 'debug');
 
   const scrollContainer = modal.querySelector('[class*="overflow-y-auto"]') ||
                           modal.querySelector('table')?.parentElement ||
@@ -946,59 +1009,59 @@ async function runDiagnosticOnly() {
 // ========== MAIN AUTO EXTRACT ==========
 async function autoExtract() {
   if (state.isExtracting) {
-    return { error: true, message: 'Extraction déjà en cours' };
+    return { error: true, message: 'Extraction already in progress' };
   }
 
   state.isExtracting = true;
-  log('🚀 autoExtract() démarré', 'info');
+  log('autoExtract() started', 'info');
+
+  const labels = getLabels();
+
+  // Helper to check if text contains memory labels
+  const hasMemoryContent = (text) => matchesLabel(text || '', labels.memory);
 
   try {
-    // Détection améliorée de la modale mémoires (plusieurs méthodes)
+    // Enhanced memory modal detection (multiple methods)
     let isMemoryModal = false;
 
-    // Méthode 1: role="dialog" avec texte mémoire
+    // Method 1: role="dialog" with memory text
     let modal = document.querySelector('[role="dialog"]');
     if (modal) {
-      const modalText = modal.textContent || '';
-      isMemoryModal = modalText.includes('mémorisés') ||
-                      modalText.includes('Remplissage') ||
-                      modalText.includes('Memory');
-      if (isMemoryModal) log('Modale trouvée via role="dialog"', 'success');
+      isMemoryModal = hasMemoryContent(modal.textContent);
+      if (isMemoryModal) log('Modal found via role="dialog"', 'success');
     }
 
-    // Méthode 2: Popover Radix avec table de mémoires
+    // Method 2: Radix popover with memory table
     if (!isMemoryModal) {
       const popovers = document.querySelectorAll('[data-radix-popper-content-wrapper], [class*="popover"], .fixed[class*="z-"]');
       for (const pop of popovers) {
-        if (pop.offsetHeight > 0 &&
-            (pop.textContent?.includes('mémorisés') || pop.textContent?.includes('Remplissage'))) {
+        if (pop.offsetHeight > 0 && hasMemoryContent(pop.textContent)) {
           isMemoryModal = true;
-          log('Modale trouvée via popover/radix', 'success');
+          log('Modal found via popover/radix', 'success');
           break;
         }
       }
     }
 
-    // Méthode 3: Chercher une table visible avec du contenu mémoire
+    // Method 3: Look for visible table with memory content
     if (!isMemoryModal) {
       const tables = document.querySelectorAll('table');
       for (const table of tables) {
         const parent = table.closest('[class*="fixed"], [class*="absolute"], [role="dialog"]');
         if (parent && table.querySelectorAll('tr').length > 1) {
-          const parentText = parent.textContent || '';
-          if (parentText.includes('mémorisés') || parentText.includes('Remplissage')) {
+          if (hasMemoryContent(parent.textContent)) {
             isMemoryModal = true;
-            log('Modale trouvée via table parent', 'success');
+            log('Modal found via table parent', 'success');
             break;
           }
         }
       }
     }
 
-    log(`Modale mémoires détectée: ${isMemoryModal}`, isMemoryModal ? 'success' : 'warning');
+    log(`Memory modal detected: ${isMemoryModal}`, isMemoryModal ? 'success' : 'warning');
 
     if (!isMemoryModal) {
-      log('Navigation vers les mémoires...', 'info');
+      log('Navigating to memories...', 'info');
       const navResult = await navigateToMemories();
       if (!navResult.success) {
         state.isExtracting = false;
@@ -1018,7 +1081,7 @@ async function autoExtract() {
 
   } catch (error) {
     state.isExtracting = false;
-    log('Erreur: ' + error.message, 'error');
+    log('Error: ' + error.message, 'error');
     return { error: true, message: error.message };
   }
 }

@@ -1,0 +1,382 @@
+{
+  "appName": {
+    "message": "What GPT Knows",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Découvrez ce que ChatGPT sait de vous - Profil psychologique par IA",
+    "description": "Extension description"
+  },
+
+  "splash_yourPersona": {
+    "message": "Votre Persona",
+    "description": "Splash screen title"
+  },
+  "splash_tagline": {
+    "message": "Découvrez qui vous êtes selon ChatGPT",
+    "description": "Splash screen tagline"
+  },
+  "splash_btnDiscover": {
+    "message": "En savoir plus sur moi",
+    "description": "Main CTA button"
+  },
+  "splash_btnSettings": {
+    "message": "Configurer les API",
+    "description": "Settings button"
+  },
+
+  "consent_title": {
+    "message": "Comment ça marche",
+    "description": "Consent screen title"
+  },
+  "consent_subtitle": {
+    "message": "Avant de commencer, voici ce qui va se passer",
+    "description": "Consent screen subtitle"
+  },
+  "consent_step1_title": {
+    "message": "Extraction",
+    "description": "Step 1 title"
+  },
+  "consent_step1_desc": {
+    "message": "On récupère les mémoires stockées par ChatGPT",
+    "description": "Step 1 description"
+  },
+  "consent_step2_title": {
+    "message": "Interrogatoire",
+    "description": "Step 2 title"
+  },
+  "consent_step2_optional": {
+    "message": "optionnel",
+    "description": "Optional badge"
+  },
+  "consent_step2_desc": {
+    "message": "On pose des questions à ChatGPT pour savoir ce qu'il déduit de vous",
+    "description": "Step 2 description"
+  },
+  "consent_step3_title": {
+    "message": "Analyse",
+    "description": "Step 3 title"
+  },
+  "consent_step3_desc": {
+    "message": "Toutes ces données sont envoyées à",
+    "description": "Step 3 description prefix"
+  },
+  "consent_step3_provider": {
+    "message": "l'API choisie",
+    "description": "API provider placeholder"
+  },
+  "consent_step3_suffix": {
+    "message": "pour construire votre profil",
+    "description": "Step 3 description suffix"
+  },
+  "consent_privacy_title": {
+    "message": "Nous ne captons aucune donnée",
+    "description": "Privacy notice title"
+  },
+  "consent_privacy_desc": {
+    "message": "Tout reste entre vous et l'IA. Vos données vont directement de votre navigateur vers l'API que VOUS avez configurée (votre clé, votre compte).",
+    "description": "Privacy notice description"
+  },
+  "consent_btnBack": {
+    "message": "Retour",
+    "description": "Back button"
+  },
+  "consent_btnAccept": {
+    "message": "J'ai compris, continuer",
+    "description": "Accept button"
+  },
+
+  "extract_title": {
+    "message": "Extraction des souvenirs",
+    "description": "Extraction screen title"
+  },
+  "extract_subtitle": {
+    "message": "Récupération de ce que ChatGPT sait sur vous",
+    "description": "Extraction screen subtitle"
+  },
+  "extract_notReady_title": {
+    "message": "Ouvrez ChatGPT",
+    "description": "Not ready state title"
+  },
+  "extract_notReady_desc": {
+    "message": "Allez sur chatgpt.com puis revenez ici",
+    "description": "Not ready state description"
+  },
+  "extract_ready_title": {
+    "message": "Prêt à extraire",
+    "description": "Ready state title"
+  },
+  "extract_ready_desc": {
+    "message": "Cliquez pour lancer l'extraction automatique",
+    "description": "Ready state description"
+  },
+  "extract_ready_btn": {
+    "message": "Extraire les souvenirs",
+    "description": "Extract button"
+  },
+  "extract_inProgress_title": {
+    "message": "Extraction en cours...",
+    "description": "In progress title"
+  },
+  "extract_inProgress_label": {
+    "message": "souvenirs",
+    "description": "Memories count label"
+  },
+  "extract_done_count": {
+    "message": "$COUNT$ souvenirs extraits",
+    "description": "Done count message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "191" }
+    }
+  },
+  "extract_done_ready": {
+    "message": "Prêt pour l'analyse",
+    "description": "Ready for analysis message"
+  },
+  "extract_option_interrogate": {
+    "message": "Interroger ChatGPT",
+    "description": "Interrogation option title"
+  },
+  "extract_option_interrogate_desc": {
+    "message": "Poser des questions pour découvrir ce qu'il déduit de vous",
+    "description": "Interrogation option description"
+  },
+  "extract_mode_quick": {
+    "message": "Rapide",
+    "description": "Quick mode title"
+  },
+  "extract_mode_quick_desc": {
+    "message": "6 questions (~10 min)",
+    "description": "Quick mode description"
+  },
+  "extract_mode_standard": {
+    "message": "Standard",
+    "description": "Standard mode title"
+  },
+  "extract_mode_standard_desc": {
+    "message": "14 questions psycho (~20 min)",
+    "description": "Standard mode description"
+  },
+  "extract_mode_complete": {
+    "message": "Complet",
+    "description": "Complete mode title"
+  },
+  "extract_mode_complete_desc": {
+    "message": "20 questions + marketing (~35 min)",
+    "description": "Complete mode description"
+  },
+  "extract_interrogating_title": {
+    "message": "Interrogatoire en cours...",
+    "description": "Interrogating title"
+  },
+  "extract_interrogating_status": {
+    "message": "Question $CURRENT$/$TOTAL$",
+    "description": "Interrogation progress",
+    "placeholders": {
+      "current": { "content": "$1", "example": "1" },
+      "total": { "content": "$2", "example": "14" }
+    }
+  },
+  "extract_btnBack": {
+    "message": "Retour",
+    "description": "Back button"
+  },
+  "extract_btnContinue": {
+    "message": "Continuer",
+    "description": "Continue button"
+  },
+  "extract_btnSkip": {
+    "message": "Passer (déjà fait)",
+    "description": "Skip button"
+  },
+
+  "analyze_title": {
+    "message": "Analyse IA",
+    "description": "Analysis screen title"
+  },
+  "analyze_subtitle": {
+    "message": "Création de votre persona E-E-A-T",
+    "description": "Analysis screen subtitle"
+  },
+  "analyze_noApi_title": {
+    "message": "Clé API requise",
+    "description": "No API key title"
+  },
+  "analyze_noApi_desc": {
+    "message": "Configurez votre clé Anthropic, OpenAI ou Google",
+    "description": "No API key description"
+  },
+  "analyze_noApi_btn": {
+    "message": "Configurer les API",
+    "description": "Configure APIs button"
+  },
+  "analyze_ready_title": {
+    "message": "Prêt à analyser",
+    "description": "Ready to analyze title"
+  },
+  "analyze_ready_count": {
+    "message": "$COUNT$ souvenirs à traiter",
+    "description": "Ready count message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "191" }
+    }
+  },
+  "analyze_modeMax": {
+    "message": "Mode MAX",
+    "description": "Mode MAX title"
+  },
+  "analyze_modeMax_desc": {
+    "message": "Analyse croisée Claude + Gemini 2.5 Pro",
+    "description": "Mode MAX description"
+  },
+  "analyze_ready_btn": {
+    "message": "Lancer l'analyse",
+    "description": "Start analysis button"
+  },
+  "analyze_done_title": {
+    "message": "Persona généré !",
+    "description": "Analysis done title"
+  },
+  "analyze_done_desc": {
+    "message": "Votre identité auteur E-E-A-T est prête",
+    "description": "Analysis done description"
+  },
+  "analyze_btnBack": {
+    "message": "Retour",
+    "description": "Back button"
+  },
+  "analyze_btnReport": {
+    "message": "Voir mon persona",
+    "description": "View persona button"
+  },
+  "analyze_btnSkip": {
+    "message": "Passer (déjà fait)",
+    "description": "Skip button"
+  },
+
+  "agent_watson": {
+    "message": "Watson",
+    "description": "Extractor agent name"
+  },
+  "agent_watson_status": {
+    "message": "Watson collecte les indices (E-E-A-T)...",
+    "description": "Watson progress message"
+  },
+  "agent_kahneman": {
+    "message": "Kahneman",
+    "description": "Statistician agent name"
+  },
+  "agent_kahneman_status": {
+    "message": "Kahneman analyse les biais cognitifs...",
+    "description": "Kahneman progress message"
+  },
+  "agent_jung": {
+    "message": "Jung",
+    "description": "Architect agent name"
+  },
+  "agent_jung_status": {
+    "message": "Jung construit le masque (persona)...",
+    "description": "Jung progress message"
+  },
+  "agent_cialdini": {
+    "message": "Cialdini",
+    "description": "Charterer agent name"
+  },
+  "agent_cialdini_status": {
+    "message": "Cialdini rédige la charte d'écriture...",
+    "description": "Cialdini progress message"
+  },
+  "agent_freudJung": {
+    "message": "Freud vs Jung",
+    "description": "Dual analysis agent name"
+  },
+  "agent_freudJung_status": {
+    "message": "Freud vs Jung : Le débat légendaire...",
+    "description": "Dual analysis progress message"
+  },
+  "agent_profiler_status": {
+    "message": "Le Profileur analyse les révélations ChatGPT...",
+    "description": "Profiler progress message"
+  },
+
+  "complete_title": {
+    "message": "Votre Persona",
+    "description": "Complete screen title"
+  },
+  "complete_subtitle": {
+    "message": "est prêt à être découvert",
+    "description": "Complete screen subtitle"
+  },
+  "complete_btnDiscover": {
+    "message": "Découvrir mon persona",
+    "description": "Discover button"
+  },
+  "complete_btnReset": {
+    "message": "Tout réinitialiser",
+    "description": "Reset button"
+  },
+  "complete_btnExport": {
+    "message": "Exporter JSON",
+    "description": "Export button"
+  },
+
+  "chatgpt_memories": {
+    "message": "Éléments mémorisés",
+    "description": "ChatGPT memories section label (FR)"
+  },
+  "chatgpt_memorized": {
+    "message": "mémorisés",
+    "description": "ChatGPT memorized items label (FR)"
+  },
+  "chatgpt_personalization": {
+    "message": "Remplissage",
+    "description": "ChatGPT personalization section (FR)"
+  },
+  "chatgpt_manage": {
+    "message": "Gérer",
+    "description": "ChatGPT manage button (FR)"
+  },
+  "chatgpt_memory": {
+    "message": "Mémoire",
+    "description": "ChatGPT memory label (FR)"
+  },
+
+  "report_title": {
+    "message": "Votre Profil GPT",
+    "description": "Report page title"
+  },
+  "report_generated": {
+    "message": "Profil généré le",
+    "description": "Report generation date prefix"
+  },
+
+  "error_noApiKey": {
+    "message": "Configurez votre clé API dans les paramètres",
+    "description": "Missing API key error"
+  },
+  "error_extraction": {
+    "message": "Échec de l'extraction",
+    "description": "Extraction error"
+  },
+  "error_analysis": {
+    "message": "Échec de l'analyse",
+    "description": "Analysis error"
+  },
+  "error_noMemories": {
+    "message": "Aucun souvenir trouvé",
+    "description": "No memories error"
+  },
+
+  "reset_confirm_title": {
+    "message": "Tout réinitialiser ?",
+    "description": "Reset confirmation title"
+  },
+  "reset_confirm_text": {
+    "message": "Cela va supprimer :\n- Toutes les mémoires extraites\n- Le taggage E-E-A-T\n- L'analyse persona\n\nTu devras tout ré-extraire depuis ChatGPT.",
+    "description": "Reset confirmation text"
+  },
+  "reset_error": {
+    "message": "Erreur lors de la réinitialisation.",
+    "description": "Reset error message"
+  }
+}
