@@ -129,7 +129,10 @@ function setupListeners() {
   // Extract screen
   document.getElementById('btnStartExtract').addEventListener('click', startExtraction);
   document.getElementById('btnBackToSplash').addEventListener('click', () => goToScreen('splash'));
-  document.getElementById('btnToAnalysis').addEventListener('click', handleContinueToAnalysis);
+  document.getElementById('btnToAnalysis').addEventListener('click', () => {
+    console.log('[DEBUG] btnToAnalysis CLICKED');
+    handleContinueToAnalysis();
+  });
   document.getElementById('btnSkipExtract').addEventListener('click', () => goToScreen('analyze'));
 
   // Interrogation checkbox toggle
@@ -350,17 +353,28 @@ async function startExtraction() {
 
 // ========== CONTINUE TO ANALYSIS (with optional interrogation) ==========
 async function handleContinueToAnalysis() {
-  const enableInterrogation = document.getElementById('enableInterrogation')?.checked;
+  console.log('[DEBUG] ======= handleContinueToAnalysis CALLED =======');
 
-  console.log('[DEBUG] handleContinueToAnalysis:', { enableInterrogation, isOnChatGPT });
+  const checkbox = document.getElementById('enableInterrogation');
+  const enableInterrogation = checkbox?.checked;
+
+  console.log('[DEBUG] Checkbox element:', checkbox);
+  console.log('[DEBUG] Checkbox checked:', enableInterrogation);
+  console.log('[DEBUG] isOnChatGPT:', isOnChatGPT);
 
   if (enableInterrogation && isOnChatGPT) {
     // Start interrogation first
-    console.log('[DEBUG] Starting interrogation...');
-    await startInterrogation();
+    console.log('[DEBUG] ✅ Starting interrogation...');
+    try {
+      await startInterrogation();
+      console.log('[DEBUG] Interrogation function returned');
+    } catch (err) {
+      console.error('[DEBUG] Interrogation error:', err);
+      goToScreen('analyze');
+    }
   } else {
     // Go directly to analysis
-    console.log('[DEBUG] Skipping interrogation, going to analyze');
+    console.log('[DEBUG] ❌ Skipping interrogation:', { enableInterrogation, isOnChatGPT });
     goToScreen('analyze');
   }
 }

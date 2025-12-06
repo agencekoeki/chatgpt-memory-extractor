@@ -68,7 +68,7 @@ export class APIClient {
 
   // ========== GOOGLE (Gemini) ==========
   async callGoogle(prompt, options = {}) {
-    const model = options.model || 'gemini-1.5-flash';
+    const model = options.model || 'gemini-2.0-flash'; // Updated from deprecated 1.5
     const maxTokens = options.maxTokens || 1024;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.keys.google}`;
@@ -162,8 +162,8 @@ export class APIClient {
       },
       google: {
         flash: 'gemini-2.0-flash',               // Fast, cheap (Gemini 2.0)
-        pro: 'gemini-2.5-pro-preview-06-05',     // Best - Gemini 2.5 Pro
-        deepthink: 'gemini-2.5-pro-preview-06-05' // Best reasoning
+        pro: 'gemini-2.5-pro',                   // Best - Gemini 2.5 Pro (stable)
+        deepthink: 'gemini-2.5-flash'            // Fast reasoning
       }
     };
   }
