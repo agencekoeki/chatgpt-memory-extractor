@@ -23,7 +23,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadState();
   setupListeners();
   updateSplashScreen();
+  autoNavigate();
 });
+
+// ========== AUTO NAVIGATE ==========
+// Navigate to the appropriate screen based on current state
+function autoNavigate() {
+  if (analysisResults?.success) {
+    // Analysis done → go to complete screen
+    goToScreen('complete');
+  } else if (memories.length > 0 && hasApiKeys) {
+    // Has memories and API keys → go to analyze screen
+    goToScreen('analyze');
+  } else if (memories.length > 0) {
+    // Has memories but no API → go to analyze (will show API config)
+    goToScreen('analyze');
+  }
+  // Otherwise stay on splash
+}
 
 // ========== LOAD STATE ==========
 async function loadState() {
