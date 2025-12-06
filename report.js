@@ -520,7 +520,9 @@ function setupNavigation() {
 }
 
 function setupExport() {
-  document.getElementById('exportJson').addEventListener('click', exportJson);
+  document.getElementById('exportAll')?.addEventListener('click', () => exportJson('all'));
+  document.getElementById('exportPublic')?.addEventListener('click', () => exportJson('public'));
+  document.getElementById('exportVoice')?.addEventListener('click', () => exportJson('voice'));
 }
 
 function setupReset() {
@@ -1107,15 +1109,29 @@ function renderExtractions(extractions) {
     'tres-prive': { icon: '🔴', label: 'Très privé', class: 'tres-prive' }
   };
 
+  // Confidence levels for inferences
+  const confidenceLevels = {
+    'high': { icon: '◉', label: 'Fiable', class: 'confidence-high' },
+    'medium': { icon: '◎', label: 'Probable', class: 'confidence-medium' },
+    'low': { icon: '○', label: 'Inférence', class: 'confidence-low' }
+  };
+
   let html = '';
-  extractions.slice(0, 50).forEach((ext, index) => {
-    const delay = Math.min(index * 0.03, 1.5);
+  extractions.forEach((ext, index) => {
+    const delay = Math.min(index * 0.02, 2);
     const categories = ext.categories || [];
     const privacy = privacyLevels[ext.privacy_level] || privacyLevels['public'];
+
+    // Determine confidence level based on source/inference
+    const isInference = ext.is_inference || ext.inferred ||
+      (ext.text && (ext.text.includes('probablement') || ext.text.includes('semble') || ext.text.includes('peut-être')));
+    const confidence = ext.confidence || (isInference ? 'low' : 'high');
+    const confInfo = confidenceLevels[confidence] || confidenceLevels['high'];
 
     html += `
       <div class="memory-item revealed" style="animation-delay: ${delay}s;">
         <div class="memory-header">
+          <span class="confidence-badge ${confInfo.class}" title="${confInfo.label}">${confInfo.icon}</span>
           <span class="privacy-badge ${privacy.class}">${privacy.icon} ${privacy.label}</span>
         </div>
         <div class="memory-text">${escapeHtml(ext.text || '')}</div>
@@ -1126,10 +1142,6 @@ function renderExtractions(extractions) {
       </div>
     `;
   });
-
-  if (extractions.length > 50) {
-    html += `<p style="color: var(--text-muted); text-align: center; padding: 20px;">+ ${extractions.length - 50} autres extractions...</p>`;
-  }
 
   container.innerHTML = html;
 }
@@ -1174,26 +1186,229 @@ function triggerLightTrace() {
 }
 
 // ========== EXPORT ==========
-async function exportJson() {
+async function exportJson(type = 'all') {
   try {
-    const data = {
-      exportDate: new Date().toISOString(),
-      persona: analysisResults?.persona || null,
-      extractions: analysisResults?.extractions || [],
-      statistics: analysisResults?.statistics || {},
-      memoriesCount: memories.length
-    };
+    let data, filename;
+    const date = new Date().toISOString().slice(0, 10);
+    const firstName = analysisResults?.persona?.mask?.profile?.firstName || 'user';
+
+    switch (type) {
+      case 'public':
+        // Export "Ce qu'on sait de moi" - Grand public / shocking profile
+        data = buildPublicProfile();
+        filename = `ce-quon-sait-de-moi-${firstName}-${date}.json`;
+        break;
+
+      case 'voice':
+        // Export "Ma voix IA" - Pour reproduire le style d'écriture
+        data = buildVoiceProfile();
+        filename = `ma-voix-ia-${firstName}-${date}.json`;
+        break;
+
+      default:
+        // Export complet - Tout
+        data = {
+          exportDate: new Date().toISOString(),
+          exportType: 'complete',
+          persona: analysisResults?.persona || null,
+          extractions: analysisResults?.extractions || [],
+          statistics: analysisResults?.statistics || {},
+          memoriesCount: memories.length
+        };
+        filename = `persona-complet-${firstName}-${date}.json`;
+    }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `persona-eeat-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
     console.error('Export error:', e);
   }
+}
+
+// Build "Ce qu'on sait de moi" profile for general public
+function buildPublicProfile() {
+  const persona = analysisResults?.persona;
+  const extractions = analysisResults?.extractions || [];
+  const stats = analysisResults?.statistics;
+
+  // Group extractions by theme for shocking revelation
+  const byCategory = {};
+  extractions.forEach(ext => {
+    (ext.categories || ['autre']).forEach(cat => {
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push({
+        info: ext.text,
+        confidentialite: ext.privacy_level,
+        fiabilite: ext.confidence || (ext.is_inference ? 'inférence' : 'fiable')
+      });
+    });
+  });
+
+  return {
+    exportDate: new Date().toISOString(),
+    exportType: 'public_profile',
+    titre: "Ce que ChatGPT sait de moi",
+    description: "Profil complet déduit de vos conversations avec l'IA",
+
+    resume: {
+      prenom: persona?.mask?.profile?.firstName || 'Inconnu',
+      archetype: generateArchetype(analysisResults),
+      nombreInfos: extractions.length,
+      niveauExposition: calculateExposureLevel(stats?.byPrivacy)
+    },
+
+    profils: {
+      psychologique: {
+        personnalite: persona?.mask?.type || null,
+        biais: persona?.mask?.bias || null,
+        valeurs: persona?.editorial?.implicitValues?.map(v => v.value) || [],
+        vulnerabilites: persona?.backstory?.vulnerability || null
+      },
+      consommateur: {
+        interets: persona?.mask?.expertiseDomains || [],
+        centresDinteret: stats?.topTags?.slice(0, 10).map(t => t.tag) || []
+      },
+      professionnel: {
+        situation: persona?.mask?.profile?.currentSituation || null,
+        parcours: persona?.mask?.profile?.background || null,
+        expertise: persona?.mask?.expertiseLevel || null
+      }
+    },
+
+    toutesLesInfos: byCategory,
+
+    statistiques: {
+      parConfidentialite: stats?.byPrivacy || {},
+      parCategorie: stats?.categoryDistribution || []
+    },
+
+    avertissement: "Ces informations sont déduites de vos conversations avec ChatGPT. Certaines sont des inférences qui peuvent être inexactes."
+  };
+}
+
+// Build "Ma voix IA" profile for AI reproducibility
+function buildVoiceProfile() {
+  const persona = analysisResults?.persona;
+
+  return {
+    exportDate: new Date().toISOString(),
+    exportType: 'voice_profile',
+    titre: "Profil de reproduction vocale IA",
+    description: "Utilisez ce profil pour qu'une IA écrive comme vous",
+
+    instructions: `Tu vas incarner ${persona?.mask?.profile?.firstName || 'cette personne'}.
+Voici son profil complet pour reproduire son style d'écriture et sa façon de penser.`,
+
+    identite: {
+      prenom: persona?.mask?.profile?.firstName || null,
+      type: persona?.mask?.type || null,
+      mission: persona?.mask?.mission || null,
+      valeurUnique: persona?.mask?.uniqueValue || null
+    },
+
+    contexte: {
+      parcours: persona?.mask?.profile?.background || null,
+      situationActuelle: persona?.mask?.profile?.currentSituation || null,
+      domainesExpertise: persona?.mask?.expertiseDomains || [],
+      limites: persona?.mask?.limits || []
+    },
+
+    backstory: persona?.backstory ? {
+      declencheur: persona.backstory.trigger,
+      experience: persona.backstory.experience,
+      motivation: persona.backstory.motivation,
+      vulnerabilite: persona.backstory.vulnerability,
+      recitComplet: persona.backstory.fullText
+    } : null,
+
+    tonEditorial: persona?.editorial ? {
+      registre: persona.editorial.tone?.register,
+      technicite: persona.editorial.tone?.technicality,
+      chaleur: persona.editorial.tone?.warmth,
+      assertivite: persona.editorial.tone?.assertiveness,
+      promesse: persona.editorial.editorialPromise
+    } : null,
+
+    charteEcriture: persona?.writingCharter ? {
+      patternsAutorises: persona.writingCharter.allowedPatterns || [],
+      patternsInterdits: persona.writingCharter.forbiddenPatterns || [],
+      vocabulairePreferee: persona.writingCharter.vocabulary?.preferred || [],
+      vocabulaireEviter: persona.writingCharter.vocabulary?.avoided || [],
+      signauxHumains: persona.writingCharter.humanSignals || {},
+      signauxExpertise: persona.writingCharter.expertSignals || {},
+      exemplesOK: persona.writingCharter.examplesInTone || [],
+      exemplesNOK: persona.writingCharter.examplesOutOfTone || []
+    } : null,
+
+    valeurs: persona?.editorial?.implicitValues || [],
+    biais: persona?.mask?.bias || null,
+
+    promptSuggere: generateVoicePrompt(persona)
+  };
+}
+
+// Helper: Calculate exposure level
+function calculateExposureLevel(byPrivacy) {
+  if (!byPrivacy) return 'inconnu';
+  const total = Object.values(byPrivacy).reduce((a, b) => a + b, 0) || 1;
+  const score = ((byPrivacy['semi-prive'] || 0) * 0.3 +
+    (byPrivacy['prive'] || 0) * 0.6 +
+    (byPrivacy['tres-prive'] || 0) * 1.0) / total * 100;
+
+  if (score >= 70) return 'critique';
+  if (score >= 50) return 'élevé';
+  if (score >= 30) return 'modéré';
+  return 'faible';
+}
+
+// Helper: Generate a ready-to-use voice prompt
+function generateVoicePrompt(persona) {
+  if (!persona) return null;
+
+  const mask = persona.mask;
+  const charter = persona.writingCharter;
+  const editorial = persona.editorial;
+
+  let prompt = `Tu es ${mask?.profile?.firstName || 'un expert'}`;
+  if (mask?.type) prompt += `, un(e) ${mask.type}`;
+  if (mask?.expertiseDomains?.length) {
+    prompt += ` spécialisé(e) en ${mask.expertiseDomains.slice(0, 3).join(', ')}`;
+  }
+  prompt += '.\n\n';
+
+  if (mask?.mission) {
+    prompt += `Ta mission: ${mask.mission}\n\n`;
+  }
+
+  if (editorial?.tone) {
+    prompt += 'Ton style:\n';
+    if (editorial.tone.register) prompt += `- Registre: ${editorial.tone.register}\n`;
+    if (editorial.tone.technicality) prompt += `- Technicité: ${editorial.tone.technicality}\n`;
+    if (editorial.tone.warmth) prompt += `- Chaleur: ${editorial.tone.warmth}\n`;
+  }
+
+  if (charter?.vocabulary?.preferred?.length) {
+    prompt += `\nMots à utiliser: ${charter.vocabulary.preferred.slice(0, 10).join(', ')}\n`;
+  }
+
+  if (charter?.vocabulary?.avoided?.length) {
+    prompt += `Mots à éviter: ${charter.vocabulary.avoided.slice(0, 10).join(', ')}\n`;
+  }
+
+  if (mask?.bias) {
+    prompt += `\nTon angle/biais: ${mask.bias}\n`;
+  }
+
+  if (mask?.limits?.length) {
+    prompt += `\nTes limites avouées: ${mask.limits.join(', ')}\n`;
+  }
+
+  return prompt;
 }
 
 // ========== HELPERS ==========

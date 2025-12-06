@@ -1161,7 +1161,31 @@
     .memory-header {
       display: flex;
       justify-content: flex-end;
+      gap: 8px;
       margin-bottom: 8px;
+    }
+
+    .confidence-badge {
+      font-size: 14px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .confidence-badge.confidence-high {
+      background: rgba(34, 197, 94, 0.1);
+      color: #4ade80;
+    }
+
+    .confidence-badge.confidence-medium {
+      background: rgba(250, 204, 21, 0.1);
+      color: #facc15;
+    }
+
+    .confidence-badge.confidence-low {
+      background: rgba(168, 162, 158, 0.1);
+      color: #a8a29e;
+      font-style: italic;
     }
 
     .privacy-badge {
@@ -1498,21 +1522,42 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Actions</div>
-        <button class="btn btn-outline" style="width: 100%; margin-bottom: 8px;" id="exportJson">
+        <div class="sidebar-title">Exporter</div>
+        <button class="btn btn-outline" style="width: 100%; margin-bottom: 8px;" id="exportAll">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Exporter Persona JSON
+          Tout exporter (complet)
         </button>
+        <button class="btn btn-outline" style="width: 100%; margin-bottom: 8px;" id="exportPublic">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Profil "Ce qu'on sait de moi"
+        </button>
+        <button class="btn btn-outline" style="width: 100%; margin-bottom: 8px;" id="exportVoice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          Profil "Ma voix IA"
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Danger</div>
         <button class="btn btn-outline" style="width: 100%; color: var(--danger);" id="resetData">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="1 4 1 10 7 10"/>
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
           </svg>
-          Reinitialiser l'analyse
+          Reinitialiser
         </button>
       </div>
     </aside>
