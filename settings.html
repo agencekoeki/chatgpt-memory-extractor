@@ -294,31 +294,19 @@
       </div>
 
       <div class="form-group">
-        <label for="preferredProvider">Fournisseur préféré</label>
-        <select id="preferredProvider">
-          <option value="anthropic">Anthropic (Claude)</option>
-          <option value="openai">OpenAI (GPT)</option>
-          <option value="google">Google (Gemini)</option>
-        </select>
-      </div>
-
-      <div class="form-group">
         <label for="labelerModel">Modèle pour labélisation (rapide)</label>
         <select id="labelerModel">
-          <option value="haiku">Claude 3.5 Haiku</option>
-          <option value="mini">GPT-4o Mini</option>
-          <option value="flash">Gemini 2.0 Flash</option>
+          <!-- Options filled dynamically based on available API keys -->
         </select>
+        <p class="hint" id="labelerHint">Les options dépendent de vos clés API</p>
       </div>
 
       <div class="form-group">
         <label for="profilerModel">Modèle pour analyse (intelligent)</label>
         <select id="profilerModel">
-          <option value="opus">Claude Opus 4</option>
-          <option value="sonnet">Claude Sonnet 4.5</option>
-          <option value="standard">GPT-4o</option>
-          <option value="pro">Gemini 2.0 Pro</option>
+          <!-- Options filled dynamically based on available API keys -->
         </select>
+        <p class="hint" id="profilerHint">Les options dépendent de vos clés API</p>
       </div>
 
       <div class="toggle-group">

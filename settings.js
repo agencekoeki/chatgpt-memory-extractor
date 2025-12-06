@@ -8,28 +8,127 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupListeners();
 });
 
+// ========== MODEL DEFINITIONS ==========
+const LABELER_MODELS = {
+  anthropic: { value: 'haiku', label: 'Claude 3.5 Haiku' },
+  openai: { value: 'mini', label: 'GPT-4o Mini' },
+  google: { value: 'flash', label: 'Gemini 2.0 Flash' }
+};
+
+const PROFILER_MODELS = {
+  anthropic: [
+    { value: 'opus', label: 'Claude Opus 4' },
+    { value: 'sonnet', label: 'Claude Sonnet 4.5' }
+  ],
+  openai: [
+    { value: 'standard', label: 'GPT-4o' }
+  ],
+  google: [
+    { value: 'pro', label: 'Gemini 2.0 Pro' }
+  ]
+};
+
 // ========== LOAD SETTINGS ==========
 async function loadSettings() {
   try {
     // Load API keys
     const keysResponse = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
-    if (keysResponse) {
-      $('anthropicKey').value = keysResponse.anthropic || '';
-      $('openaiKey').value = keysResponse.openai || '';
-      $('googleKey').value = keysResponse.google || '';
-    }
+    const keys = keysResponse || {};
+
+    $('anthropicKey').value = keys.anthropic || '';
+    $('openaiKey').value = keys.openai || '';
+    $('googleKey').value = keys.google || '';
+
+    // Populate model dropdowns based on available keys
+    populateModelDropdowns(keys);
 
     // Load preferences
     const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
     if (settingsResponse) {
-      $('preferredProvider').value = settingsResponse.preferredProvider || 'anthropic';
-      $('labelerModel').value = settingsResponse.labelerModel || 'haiku';
-      $('profilerModel').value = settingsResponse.profilerModel || 'opus';
+      // Set selected values if they exist in options
+      if (settingsResponse.labelerModel) {
+        const labelerSelect = $('labelerModel');
+        if ([...labelerSelect.options].some(o => o.value === settingsResponse.labelerModel)) {
+          labelerSelect.value = settingsResponse.labelerModel;
+        }
+      }
+      if (settingsResponse.profilerModel) {
+        const profilerSelect = $('profilerModel');
+        if ([...profilerSelect.options].some(o => o.value === settingsResponse.profilerModel)) {
+          profilerSelect.value = settingsResponse.profilerModel;
+        }
+      }
       $('autoAnalyze').checked = settingsResponse.autoAnalyze || false;
     }
+
+    // Listen for key changes to update dropdowns
+    $('anthropicKey').addEventListener('input', updateDropdownsFromKeys);
+    $('openaiKey').addEventListener('input', updateDropdownsFromKeys);
+    $('googleKey').addEventListener('input', updateDropdownsFromKeys);
+
   } catch (e) {
     console.error('Error loading settings:', e);
   }
+}
+
+// ========== POPULATE MODEL DROPDOWNS ==========
+function populateModelDropdowns(keys) {
+  const labelerSelect = $('labelerModel');
+  const profilerSelect = $('profilerModel');
+
+  // Clear existing options
+  labelerSelect.innerHTML = '';
+  profilerSelect.innerHTML = '';
+
+  const hasAnthropic = keys.anthropic?.trim();
+  const hasOpenAI = keys.openai?.trim();
+  const hasGoogle = keys.google?.trim();
+
+  // Labeler models (one per provider)
+  if (hasAnthropic) {
+    labelerSelect.add(new Option(LABELER_MODELS.anthropic.label, LABELER_MODELS.anthropic.value));
+  }
+  if (hasOpenAI) {
+    labelerSelect.add(new Option(LABELER_MODELS.openai.label, LABELER_MODELS.openai.value));
+  }
+  if (hasGoogle) {
+    labelerSelect.add(new Option(LABELER_MODELS.google.label, LABELER_MODELS.google.value));
+  }
+
+  // Profiler models (multiple per provider)
+  if (hasAnthropic) {
+    PROFILER_MODELS.anthropic.forEach(m => {
+      profilerSelect.add(new Option(m.label, m.value));
+    });
+  }
+  if (hasOpenAI) {
+    PROFILER_MODELS.openai.forEach(m => {
+      profilerSelect.add(new Option(m.label, m.value));
+    });
+  }
+  if (hasGoogle) {
+    PROFILER_MODELS.google.forEach(m => {
+      profilerSelect.add(new Option(m.label, m.value));
+    });
+  }
+
+  // Update hints
+  const noKeys = !hasAnthropic && !hasOpenAI && !hasGoogle;
+  $('labelerHint').textContent = noKeys
+    ? 'Ajoutez une clé API ci-dessus'
+    : 'Modèles disponibles selon vos clés';
+  $('profilerHint').textContent = noKeys
+    ? 'Ajoutez une clé API ci-dessus'
+    : 'Modèles disponibles selon vos clés';
+}
+
+function updateDropdownsFromKeys() {
+  const keys = {
+    anthropic: $('anthropicKey').value,
+    openai: $('openaiKey').value,
+    google: $('googleKey').value
+  };
+  populateModelDropdowns(keys);
 }
 
 // ========== SETUP LISTENERS ==========
@@ -55,11 +154,19 @@ async function saveSettings() {
     };
     await chrome.runtime.sendMessage({ action: 'saveApiKeys', keys });
 
-    // Save preferences
+    // Save preferences (provider is auto-detected from selected model)
+    const labelerModel = $('labelerModel').value;
+    const profilerModel = $('profilerModel').value;
+
+    // Determine provider from model selection
+    let preferredProvider = 'anthropic';
+    if (['mini', 'standard'].includes(profilerModel)) preferredProvider = 'openai';
+    else if (['flash', 'pro'].includes(profilerModel)) preferredProvider = 'google';
+
     const settings = {
-      preferredProvider: $('preferredProvider').value,
-      labelerModel: $('labelerModel').value,
-      profilerModel: $('profilerModel').value,
+      preferredProvider,
+      labelerModel,
+      profilerModel,
       autoAnalyze: $('autoAnalyze').checked
     };
     await chrome.runtime.sendMessage({ action: 'saveSettings', settings });
