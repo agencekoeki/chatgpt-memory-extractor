@@ -694,6 +694,35 @@ body {
   line-height: 1.5;
 }
 
+.consent-info {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.consent-info svg {
+  color: var(--success);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.consent-info strong {
+  display: block;
+  font-size: 13px;
+  color: var(--success);
+  margin-bottom: 4px;
+}
+
+.consent-info p {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* ========== INTERROGATION OPTION ========== */
 .interrogation-option {
   margin-top: 20px;
