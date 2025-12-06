@@ -1092,6 +1092,105 @@
       padding: 20px;
     }
 
+    /* ===== PSYCH PROFILE GRID ===== */
+    .psych-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .psych-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .psych-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-light);
+      margin-bottom: 12px;
+    }
+
+    .psych-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--accent);
+      color: white;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .psych-badge.secondary {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .psych-evidence {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 8px;
+    }
+
+    .psych-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .psych-list li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .psych-list li:last-child {
+      border-bottom: none;
+    }
+
+    .interrogation-response {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .interrogation-category {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .interrogation-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .section-subtitle {
+      font-size: 14px;
+      font-weight: normal;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
     .category-bars {
       margin-top: 20px;
     }
@@ -1324,7 +1423,7 @@
       .app { grid-template-columns: 1fr; }
       .sidebar { position: relative; height: auto; }
       .main { padding: 24px; }
-      .stats-grid, .persona-grid, .tone-grid, .signals-grid { grid-template-columns: 1fr; }
+      .stats-grid, .persona-grid, .tone-grid, .signals-grid, .psych-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1482,6 +1581,14 @@
           </svg>
           Charte d'Ecriture
         </a>
+        <a class="nav-item" data-section="psychprofile" id="nav-psychprofile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
+          Profil Psycho
+        </a>
         <a class="nav-item" data-section="stats" id="nav-stats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="20" x2="18" y2="10"/>
@@ -1606,6 +1713,62 @@
         <div class="card blurred" id="card-charter">
           <div id="charterContent">
             <!-- Will be filled by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- PSYCH PROFILE SECTION -->
+      <section class="section" id="section-psychprofile">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
+          Profil Psychologique
+          <span class="section-subtitle">(Revelations ChatGPT)</span>
+        </div>
+        <div class="agent-indicator" id="agent-profiler">
+          <div class="agent-dot"></div>
+          <span>Agent Profileur en attente...</span>
+        </div>
+
+        <!-- No interrogation message -->
+        <div class="card" id="noInterrogation" style="display: none;">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="opacity: 0.5;">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p style="margin-top: 16px; color: var(--text-muted);">
+              Aucun interrogatoire n'a ete effectue.<br>
+              Relancez l'extraction avec l'option "Interroger ChatGPT" activee.
+            </p>
+          </div>
+        </div>
+
+        <!-- Psych profile content -->
+        <div id="psychProfileContent">
+          <!-- Summary card -->
+          <div class="card blurred" id="card-psych-summary">
+            <div class="card-title">Synthese</div>
+            <div id="psychSummary">
+              <!-- Will be filled by JS -->
+            </div>
+          </div>
+
+          <!-- Psychology grid -->
+          <div class="psych-grid" id="psychGrid">
+            <!-- Will be filled by JS -->
+          </div>
+
+          <!-- Raw interrogation responses -->
+          <div class="card blurred" id="card-interrogation-raw">
+            <div class="card-title">Reponses brutes de ChatGPT</div>
+            <div id="interrogationRaw">
+              <!-- Will be filled by JS -->
+            </div>
           </div>
         </div>
       </section>

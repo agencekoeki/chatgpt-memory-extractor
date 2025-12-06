@@ -731,6 +731,16 @@ function revealAllData(results, memories) {
     revealCard('card-extractions');
     setAgentState('extractor', 'complete', 'Extraction terminee');
   }, 1800);
+
+  // Reveal psych profile (if available)
+  setTimeout(() => {
+    renderPsychProfile(results.persona?.psychProfile, results.interrogation);
+    if (results.interrogation?.length > 0) {
+      setAgentState('profiler', 'complete', 'Profil psychologique etabli');
+    } else {
+      setAgentState('profiler', 'waiting', 'Pas d\'interrogatoire');
+    }
+  }, 2200);
 }
 
 // ========== RENDER PERSONA ==========
@@ -1174,6 +1184,237 @@ function setNavState(navId, state) {
   nav.classList.remove('loading', 'complete');
   if (state) {
     nav.classList.add(state);
+  }
+}
+
+// ========== RENDER PSYCH PROFILE ==========
+function renderPsychProfile(psychProfile, interrogation) {
+  const noInterrogation = document.getElementById('noInterrogation');
+  const psychContent = document.getElementById('psychProfileContent');
+  const summaryContainer = document.getElementById('psychSummary');
+  const gridContainer = document.getElementById('psychGrid');
+  const rawContainer = document.getElementById('interrogationRaw');
+
+  // No interrogation data
+  if (!interrogation || interrogation.length === 0) {
+    if (noInterrogation) noInterrogation.style.display = 'block';
+    if (psychContent) psychContent.style.display = 'none';
+    return;
+  }
+
+  if (noInterrogation) noInterrogation.style.display = 'none';
+  if (psychContent) psychContent.style.display = 'block';
+
+  // Render summary
+  if (summaryContainer && psychProfile?.summary) {
+    const s = psychProfile.summary;
+    summaryContainer.innerHTML = `
+      <div style="font-size: 18px; color: var(--text-primary); margin-bottom: 12px;">
+        "${escapeHtml(s.oneSentence || 'Profil en cours d\'analyse')}"
+      </div>
+      ${s.keyInsight ? `
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 8px;">
+          <strong>Insight cle:</strong> ${escapeHtml(s.keyInsight)}
+        </div>
+      ` : ''}
+      <div class="psych-badge ${s.dataQuality === 'excellente' ? '' : 'secondary'}">
+        Qualite des donnees: ${escapeHtml(s.dataQuality || 'inconnue')}
+      </div>
+    `;
+    revealCard('card-psych-summary');
+  }
+
+  // Render psychology grid
+  if (gridContainer && psychProfile) {
+    let gridHtml = '';
+
+    // Brain Type
+    if (psychProfile.psychology?.brainType) {
+      const bt = psychProfile.psychology.brainType;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">🧠 Centre Decisionnel</div>
+          <div class="psych-badge">${escapeHtml(bt.dominant || '?')}</div>
+          ${bt.secondary ? `<div class="psych-badge secondary">${escapeHtml(bt.secondary)}</div>` : ''}
+          <div class="psych-evidence">${escapeHtml(bt.evidence || '')}</div>
+        </div>
+      `;
+    }
+
+    // Behavior Profile
+    if (psychProfile.psychology?.behaviorProfile) {
+      const bp = psychProfile.psychology.behaviorProfile;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">⚡ Profil Comportemental</div>
+          <div class="psych-badge">${escapeHtml(bp.primary || '?')}</div>
+          ${bp.secondary ? `<div class="psych-badge secondary">${escapeHtml(bp.secondary)}</div>` : ''}
+          <div class="psych-evidence">${escapeHtml(bp.evidence || '')}</div>
+        </div>
+      `;
+    }
+
+    // SONCAS
+    if (psychProfile.motivations?.soncas) {
+      const soncas = psychProfile.motivations.soncas;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">🎯 SONCAS (Motivation d'achat)</div>
+          <div class="psych-badge">${escapeHtml(soncas.primary || '?')}</div>
+          ${soncas.secondary ? `<div class="psych-badge secondary">${escapeHtml(soncas.secondary)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // Thinking System
+    if (psychProfile.psychology?.thinkingSystem) {
+      const ts = psychProfile.psychology.thinkingSystem;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">💭 Systeme de Pensee</div>
+          <div class="psych-badge">${ts.dominant === 'systeme1' ? 'Systeme 1 (Intuitif)' : ts.dominant === 'systeme2' ? 'Systeme 2 (Analytique)' : 'Mixte'}</div>
+          <div class="psych-evidence">${escapeHtml(ts.context || '')}</div>
+        </div>
+      `;
+    }
+
+    // Influence Triggers
+    if (psychProfile.influenceTriggers) {
+      const it = psychProfile.influenceTriggers;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">🧲 Leviers d'Influence (Cialdini)</div>
+          <div class="psych-badge">${escapeHtml(it.mostSensitive || '?')}</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Moins sensible a: ${escapeHtml(it.leastSensitive || '?')}
+          </div>
+          <div class="psych-evidence">${escapeHtml(it.evidence || '')}</div>
+        </div>
+      `;
+    }
+
+    // Archetype
+    if (psychProfile.archetype) {
+      const arch = psychProfile.archetype;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">🎭 Archetype de Jung</div>
+          <div class="psych-badge">${escapeHtml(arch.jungian || '?')}</div>
+          ${arch.shadow ? `<div style="font-size: 12px; color: var(--danger); margin-top: 4px;">Ombre: ${escapeHtml(arch.shadow)}</div>` : ''}
+          <div class="psych-evidence">${escapeHtml(arch.evidence || '')}</div>
+        </div>
+      `;
+    }
+
+    // VAK
+    if (psychProfile.communication?.vak) {
+      const comm = psychProfile.communication;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">📡 Canal de Communication</div>
+          <div class="psych-badge">${escapeHtml(comm.vak || '?')}</div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">${escapeHtml(comm.style || '')}</div>
+        </div>
+      `;
+    }
+
+    // Vulnerabilities
+    if (psychProfile.vulnerabilities) {
+      const vuln = psychProfile.vulnerabilities;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">⚠️ Vulnerabilites</div>
+          ${vuln.stressType ? `<div class="psych-badge secondary">Type ${escapeHtml(vuln.stressType)}</div>` : ''}
+          ${vuln.weaknesses?.length > 0 ? `
+            <ul class="psych-list">
+              ${vuln.weaknesses.slice(0, 3).map(w => `<li>${escapeHtml(w)}</li>`).join('')}
+            </ul>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Motivations
+    if (psychProfile.motivations?.drivers?.length > 0) {
+      const mot = psychProfile.motivations;
+      gridHtml += `
+        <div class="psych-card">
+          <div class="psych-card-title">🚀 Motivations & Peurs</div>
+          <div style="font-size: 13px; color: var(--success); margin-bottom: 4px;">Drivers:</div>
+          <ul class="psych-list">
+            ${mot.drivers.slice(0, 3).map(d => `<li>${escapeHtml(d)}</li>`).join('')}
+          </ul>
+          ${mot.fears?.length > 0 ? `
+            <div style="font-size: 13px; color: var(--danger); margin: 8px 0 4px;">Peurs:</div>
+            <ul class="psych-list">
+              ${mot.fears.slice(0, 3).map(f => `<li>${escapeHtml(f)}</li>`).join('')}
+            </ul>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Marketing Profile
+    if (psychProfile.marketingProfile) {
+      const mp = psychProfile.marketingProfile;
+      gridHtml += `
+        <div class="psych-card" style="grid-column: span 2;">
+          <div class="psych-card-title">📊 Profil Marketing</div>
+          ${mp.vals ? `<div class="psych-badge">${escapeHtml(mp.vals)}</div>` : ''}
+          ${mp.messagingAngle ? `
+            <div style="margin-top: 12px;">
+              <strong style="color: var(--accent-light); font-size: 13px;">Comment lui parler:</strong>
+              <p style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">${escapeHtml(mp.messagingAngle)}</p>
+            </div>
+          ` : ''}
+          ${mp.buyingTriggers?.length > 0 ? `
+            <div style="margin-top: 12px;">
+              <strong style="color: var(--accent-light); font-size: 13px;">Declencheurs d'action:</strong>
+              <ul class="psych-list">
+                ${mp.buyingTriggers.slice(0, 3).map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    gridContainer.innerHTML = gridHtml;
+  }
+
+  // Render raw interrogation responses
+  if (rawContainer && interrogation?.length > 0) {
+    const categoryLabels = {
+      'identite': 'Identite',
+      'interets': 'Centres d\'interet',
+      'professionnel': 'Professionnel',
+      'personnalite': 'Personnalite',
+      'vulnerabilites': 'Vulnerabilites',
+      'biais': 'Biais Cognitifs',
+      'fondations_perso': 'Fondations Personnelles',
+      'fondations_pro': 'Fondations Professionnelles',
+      'moteurs': 'Moteurs de Vie',
+      'sensibilites': 'Sujets Sensibles',
+      'cerveau': 'Type de Cerveau',
+      'profil_comportemental': 'Profil Comportemental',
+      'systeme_pensee': 'Systeme de Pensee',
+      'leviers_influence': 'Leviers d\'Influence',
+      'soncas': 'SONCAS',
+      'archetype': 'Archetype Jung',
+      'vak': 'VAK',
+      'vals': 'VALS',
+      'type_stress': 'Type de Stress',
+      'enneagram': 'Enneagramme'
+    };
+
+    rawContainer.innerHTML = interrogation.map(item => `
+      <div class="interrogation-response">
+        <div class="interrogation-category">${escapeHtml(categoryLabels[item.category] || item.category)}</div>
+        <div class="interrogation-text">${escapeHtml(item.response || 'Pas de reponse')}</div>
+      </div>
+    `).join('');
+
+    revealCard('card-interrogation-raw');
   }
 }
 

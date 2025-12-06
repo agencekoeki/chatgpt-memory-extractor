@@ -48,17 +48,31 @@ export class AnalysisPipeline {
       results.stages.chartering = { done: true, time: Date.now() - startTime };
       onProgress('chartering', 100, 'Charte d\'écriture terminée');
 
+      // Stage 5: Profileur Psychologique - Analyze interrogation (if available)
+      let psychProfile = null;
+      if (this.options.interrogation && this.options.interrogation.length > 0) {
+        onProgress('profiling', 0, 'Le Profileur analyse les révélations ChatGPT...');
+        psychProfile = await this.runPsychProfiler(this.options.interrogation);
+        results.stages.profiling = { done: true, time: Date.now() - startTime };
+        onProgress('profiling', 100, 'Profil psychologique établi');
+      }
+
       // Combine into final persona
       results.persona = {
         ...maskCore,
         writingCharter,
+        psychProfile,
         metadata: {
           generatedAt: new Date().toISOString(),
           memoriesAnalyzed: memories.length,
+          interrogationResponses: this.options.interrogation?.length || 0,
           provider: this.provider,
-          version: '2.0'
+          version: '2.1'
         }
       };
+
+      // Store interrogation raw data for report
+      results.interrogation = this.options.interrogation || [];
 
       results.totalTime = Date.now() - startTime;
       results.success = true;
@@ -477,6 +491,150 @@ RÈGLES:
       }
     }
     return this.getDefaultCharter();
+  }
+
+  // ========== AGENT 5: PROFILEUR PSYCHOLOGIQUE ==========
+  async runPsychProfiler(interrogationResponses) {
+    const profilerModel = APIClient.getModelForTask('detective', this.provider);
+
+    // Organiser les réponses par catégorie
+    const responsesByCategory = {};
+    interrogationResponses.forEach(r => {
+      responsesByCategory[r.category] = r.response;
+    });
+
+    const responsesText = interrogationResponses
+      .map(r => `## ${r.category.toUpperCase()}\nQuestion: ${r.id}\nRéponse ChatGPT:\n${r.response}`)
+      .join('\n\n---\n\n');
+
+    const prompt = `Tu es PROFILEUR PSYCHOLOGIQUE. Tu analyses les réponses de ChatGPT sur un utilisateur pour dresser un profil complet.
+
+## CONTEXTE
+Ces réponses viennent d'un interrogatoire de ChatGPT. On lui a demandé ce qu'il sait/déduit de l'utilisateur à partir de leurs conversations passées.
+
+## RÉPONSES DE CHATGPT:
+${responsesText}
+
+## TON TRAVAIL
+
+Synthétise ces observations en un PROFIL PSYCHOLOGIQUE ACTIONNABLE.
+
+RÈGLES:
+- Distingue les FAITS (observés) des INFÉRENCES (déduites)
+- Note le niveau de confiance pour chaque élément
+- Croise les informations: si plusieurs catégories pointent vers le même trait, c'est plus fiable
+- Identifie les CONTRADICTIONS éventuelles
+- Reste factuel et froid (pas de jugement moral)
+
+## OUTPUT JSON (pas de markdown):
+
+{
+  "summary": {
+    "oneSentence": "Résumé en une phrase de qui est cette personne",
+    "keyInsight": "L'insight le plus révélateur/surprenant",
+    "dataQuality": "faible|moyenne|bonne|excellente"
+  },
+  "identity": {
+    "confirmed": ["Faits confirmés par ChatGPT"],
+    "inferred": ["Éléments déduits avec confiance modérée"],
+    "confidence": 0.8
+  },
+  "psychology": {
+    "brainType": {
+      "dominant": "rationnel|emotionnel|instinctif",
+      "secondary": "rationnel|emotionnel|instinctif|null",
+      "evidence": "Preuves de ce diagnostic"
+    },
+    "behaviorProfile": {
+      "primary": "explorateur|batisseur|directeur|negociateur",
+      "secondary": "explorateur|batisseur|directeur|negociateur|null",
+      "evidence": "Preuves"
+    },
+    "thinkingSystem": {
+      "dominant": "systeme1|systeme2|mixte",
+      "context": "Dans quelles situations bascule-t-il?"
+    },
+    "enneagramHint": {
+      "probableType": "1-9 ou null si pas assez de données",
+      "evidence": "Indices observés"
+    }
+  },
+  "motivations": {
+    "drivers": ["Ce qui le fait agir"],
+    "fears": ["Ce qu'il évite/craint"],
+    "soncas": {
+      "primary": "securite|orgueil|nouveaute|confort|argent|sympathie",
+      "secondary": "securite|orgueil|nouveaute|confort|argent|sympathie|null"
+    }
+  },
+  "influenceTriggers": {
+    "mostSensitive": "preuve_sociale|autorite|rarete|reciprocite|engagement|affection",
+    "leastSensitive": "preuve_sociale|autorite|rarete|reciprocite|engagement|affection",
+    "evidence": "Comment on l'a détecté"
+  },
+  "communication": {
+    "vak": "visuel|auditif|kinesthesique",
+    "style": "Description du style de communication",
+    "sensitiveTopics": ["Sujets à éviter ou aborder avec précaution"],
+    "engagementTips": ["Comment l'engager efficacement"]
+  },
+  "archetype": {
+    "jungian": "heros|sage|explorateur|rebelle|magicien|innocent|createur|dirigeant|protecteur|amoureux|bouffon|ordinaire",
+    "shadow": "Ombre ou anti-pattern potentiel",
+    "evidence": "Preuves"
+  },
+  "vulnerabilities": {
+    "weaknesses": ["Faiblesses observées"],
+    "blindSpots": ["Angles morts cognitifs"],
+    "stressType": "A|B|C|D",
+    "copingMechanisms": ["Comment il gère le stress"]
+  },
+  "contradictions": [
+    {"observation1": "...", "observation2": "...", "interpretation": "Ce que ça suggère"}
+  ],
+  "marketingProfile": {
+    "vals": "innovateur|penseur|achiever|experiencer|croyant|striver|maker|survivor",
+    "buyingTriggers": ["Ce qui déclenche une décision d'achat/action"],
+    "messagingAngle": "Comment lui parler pour le convaincre",
+    "contentPreference": "Type de contenu qu'il préfère consommer"
+  }
+}`;
+
+    const response = await this.api.call(prompt, {
+      provider: this.provider,
+      model: profilerModel,
+      maxTokens: 3500
+    });
+
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.error('Failed to parse psychProfiler response:', e);
+        return this.getDefaultPsychProfile();
+      }
+    }
+    return this.getDefaultPsychProfile();
+  }
+
+  getDefaultPsychProfile() {
+    return {
+      summary: {
+        oneSentence: "Données insuffisantes pour établir un profil",
+        keyInsight: null,
+        dataQuality: "faible"
+      },
+      identity: { confirmed: [], inferred: [], confidence: 0 },
+      psychology: null,
+      motivations: null,
+      influenceTriggers: null,
+      communication: null,
+      archetype: null,
+      vulnerabilities: null,
+      contradictions: [],
+      marketingProfile: null
+    };
   }
 
   // ========== DEFAULTS ==========
