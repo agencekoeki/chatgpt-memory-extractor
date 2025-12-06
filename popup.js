@@ -112,6 +112,14 @@ function setupListeners() {
   document.getElementById('btnToAnalysis').addEventListener('click', handleContinueToAnalysis);
   document.getElementById('btnSkipExtract').addEventListener('click', () => goToScreen('analyze'));
 
+  // Interrogation checkbox toggle
+  document.getElementById('enableInterrogation')?.addEventListener('change', (e) => {
+    const modesDiv = document.getElementById('interrogationModes');
+    if (modesDiv) {
+      modesDiv.classList.toggle('hidden', !e.target.checked);
+    }
+  });
+
   // Analyze screen
   document.getElementById('btnStartAnalyze').addEventListener('click', startAnalysis);
   document.getElementById('btnConfigApi').addEventListener('click', openSettings);
@@ -314,9 +322,16 @@ async function startInterrogation() {
     isInterrogating = true;
     updateExtractScreen();
 
+    // Get selected mode
+    const modeRadio = document.querySelector('input[name="interrogationMode"]:checked');
+    const mode = modeRadio?.value || 'standard';
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    const response = await sendTabMessage(tab.id, { action: 'startInterrogation' });
+    const response = await sendTabMessage(tab.id, {
+      action: 'startInterrogation',
+      mode: mode
+    });
 
     if (!response) {
       throw new Error('Pas de reponse - Rafraichissez la page');

@@ -754,3 +754,56 @@ body {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* Interrogation modes */
+.interrogation-modes {
+  margin-top: 12px;
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.interrogation-modes.hidden {
+  display: none;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+  border-color: var(--accent);
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.radio-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.radio-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.radio-label strong {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.radio-label small {
+  font-size: 10px;
+  color: var(--text-muted);
+}

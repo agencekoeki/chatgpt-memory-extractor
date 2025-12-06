@@ -965,7 +965,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startInterrogation') {
     sendResponse({ started: true });
 
-    startInterrogation().then(result => {
+    const mode = request.mode || 'standard'; // 'quick', 'standard', 'complete'
+    startInterrogation(mode).then(result => {
       if (result.error) {
         chrome.runtime.sendMessage({
           action: 'interrogationComplete',
@@ -1222,33 +1223,209 @@ QUESTION: À quels leviers d'influence je suis le plus sensible?
 - Exemples de moments où tu as observé cette sensibilité
 Format: biais identifié avec preuves.`,
     category: 'leviers_influence'
+  },
+  // ===== FRAMEWORKS MARKETING/BRANDING =====
+  {
+    id: 'soncas',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - SONCAS (motivations d'achat):
+- SÉCURITÉ: besoin d'être rassuré, aversion au risque, demande des garanties
+- ORGUEIL: veut se sentir valorisé, exclusif, supérieur
+- NOUVEAUTÉ: attiré par l'innovation, early adopter, curiosité
+- CONFORT: cherche la facilité, le clé-en-main, évite l'effort
+- ARGENT: sensible au ROI, au prix, calcule tout
+- SYMPATHIE: achète la relation humaine, fidèle aux personnes
+
+ANALYSE - Étape par étape:
+1. Repère mes demandes récurrentes: qu'est-ce que je cherche vraiment?
+2. Note quand j'accepte ou refuse une suggestion (pourquoi?)
+3. Identifie mon déclencheur d'action principal
+
+QUESTION: Quel est mon profil SONCAS dominant?
+- Motivation principale + secondaire
+- Exemples de déclencheurs observés dans nos échanges
+Format: profil identifié avec preuves.`,
+    category: 'soncas',
+    extended: true
+  },
+  {
+    id: 'archetype',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Archétypes de Jung (personnalité de marque):
+- HÉROS: veut prouver sa valeur, surmonter les obstacles, gagner
+- SAGE: cherche la vérité, l'analyse, la compréhension
+- EXPLORATEUR: liberté, découverte, refus des limites
+- REBELLE: remettre en question, casser les codes, provoquer
+- MAGICIEN: transformer, créer des moments spéciaux
+- INNOCENT: optimisme, simplicité, bonheur
+- CRÉATEUR: innovation, expression, originalité
+- DIRIGEANT: contrôle, leadership, responsabilité
+- PROTECTEUR: servir, aider, sacrifier
+- AMOUREUX: passion, intimité, expérience sensorielle
+- BOUFFON: humour, légèreté, profiter du moment
+- HOMME/FEMME ORDINAIRE: appartenance, authenticité, humilité
+
+ANALYSE - Étape par étape:
+1. Observe mes valeurs implicites dans nos conversations
+2. Note mes héros, modèles, ou anti-modèles mentionnés
+3. Identifie ma "quête" récurrente
+
+QUESTION: Quel archétype me correspond le mieux?
+- Archétype principal + ombre éventuelle
+- Comment ça se manifeste dans ma façon de communiquer
+Format: archétype avec justification.`,
+    category: 'archetype',
+    extended: true
+  },
+  {
+    id: 'vak',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - VAK (canal de communication préféré):
+- VISUEL: "je vois", "c'est clair", préfère les schémas, images, démonstrations
+- AUDITIF: "ça sonne bien", "j'entends ce que tu dis", préfère les explications verbales
+- KINESTHÉSIQUE: "je sens que", "concrètement", préfère pratiquer, toucher, expérimenter
+
+ANALYSE - Étape par étape:
+1. Observe mon vocabulaire sensoriel dominant
+2. Note quel format de réponse je demande (liste, schéma, exemple concret)
+3. Identifie comment je formule ma compréhension
+
+QUESTION: Quel est mon canal VAK dominant?
+- Visuel, auditif ou kinesthésique?
+- Preuves linguistiques dans mes messages
+Format: canal identifié avec exemples de vocabulaire.`,
+    category: 'vak',
+    extended: true
+  },
+  {
+    id: 'vals',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - VALS (style de vie et valeurs):
+- INNOVATEUR: ressources élevées, confiant, leader, prend des risques
+- PENSEUR: motivé par les idéaux, réfléchi, informé, conservateur
+- ACHIEVER: orienté succès, conventionnel, travailleur, focalisé sur la carrière
+- EXPERIENCER: jeune d'esprit, impulsif, enthousiasmé par le nouveau
+- CROYANT: traditionnel, conservateur, attaché au familier
+- STRIVER: incertain, à la recherche d'approbation, sensible aux opinions
+- MAKER: pratique, auto-suffisant, focalisé sur la famille
+- SURVIVOR: ressources limitées, résistant au changement, focalisé sur la survie
+
+ANALYSE - Étape par étape:
+1. Observe mes priorités dans nos conversations
+2. Note mes références (marques, médias, influences)
+3. Identifie mon rapport aux ressources (temps, argent, énergie)
+
+QUESTION: Quel profil VALS me correspond?
+- Segment principal
+- Rapport aux ressources et aux innovations
+Format: profil VALS avec observations.`,
+    category: 'vals',
+    extended: true
+  },
+  {
+    id: 'stress_type',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Types A/B/C/D (personnalité et stress):
+- TYPE A: compétitif, impatient, toujours pressé, multi-tâches, hostile quand contrarié
+- TYPE B: détendu, flexible, patient, équilibré, moins sensible au stress
+- TYPE C: évite le conflit, réprime ses émotions, perfectionniste, people-pleaser
+- TYPE D: anxieux, pessimiste, inhibé socialement, tendance à ruminer
+
+ANALYSE - Étape par étape:
+1. Observe mon ton quand je suis pressé ou frustré
+2. Note comment je formule mes urgences et priorités
+3. Identifie mes patterns d'évitement ou d'expression émotionnelle
+
+QUESTION: Quel type de personnalité (A/B/C/D) je présente?
+- Type dominant
+- Comment ça se manifeste sous pression
+Format: type identifié avec patterns observés.`,
+    category: 'type_stress',
+    extended: true
+  },
+  {
+    id: 'enneagram',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Ennéagramme (9 types de personnalité):
+- TYPE 1 (Perfectionniste): rigoureux, critique, éthique, frustré par l'imperfection
+- TYPE 2 (Altruiste): généreux, possessif, veut être aimé, aide pour être aimé
+- TYPE 3 (Battant): efficace, compétitif, focalisé sur l'image et le succès
+- TYPE 4 (Romantique): créatif, sensible, se sent différent, nostalgique
+- TYPE 5 (Observateur): analytique, détaché, accumule le savoir, économise l'énergie
+- TYPE 6 (Loyal): anxieux, loyal, cherche la sécurité, méfiant puis engagé
+- TYPE 7 (Épicurien): enthousiaste, dispersé, fuit la douleur, multi-projets
+- TYPE 8 (Leader): puissant, protecteur, direct, n'aime pas la faiblesse
+- TYPE 9 (Médiateur): paisible, évite le conflit, fusionne avec l'autre
+
+ANALYSE - Étape par étape:
+1. Identifie ma motivation profonde (être aimé, avoir raison, réussir, être unique...)
+2. Note mes stratégies de défense récurrentes
+3. Observe ce qui me stresse vs ce qui me rassure
+
+QUESTION: Quel type Ennéagramme me correspond?
+- Type principal + aile possible
+- Motivation et peur fondamentales observées
+Format: type avec justification.`,
+    category: 'enneagram',
+    extended: true
   }
 ];
 
+// Prompts de base (essentiels, rapides)
+const CORE_PROMPTS = INTERROGATION_PROMPTS.filter(p => !p.extended);
+// Prompts étendus (profilage approfondi)
+const EXTENDED_PROMPTS = INTERROGATION_PROMPTS.filter(p => p.extended);
+
 let isInterrogating = false;
 let interrogationResults = [];
+let interrogationMode = 'standard'; // 'quick', 'standard', 'complete'
 
-async function startInterrogation() {
+async function startInterrogation(mode = 'standard') {
   if (isInterrogating) {
     return { error: true, message: 'Interrogatoire déjà en cours' };
   }
 
   isInterrogating = true;
+  interrogationMode = mode;
   interrogationResults = [];
-  log('🔍 INTERROGATOIRE: Démarrage...', 'info');
+
+  // Sélectionner les prompts selon le mode
+  let prompts;
+  switch (mode) {
+    case 'quick':
+      // Mode rapide: 6 questions essentielles (~10 min)
+      prompts = CORE_PROMPTS.slice(0, 6);
+      break;
+    case 'complete':
+      // Mode complet: tous les prompts (~30-40 min)
+      prompts = INTERROGATION_PROMPTS;
+      break;
+    default:
+      // Mode standard: prompts de base sans les frameworks marketing (~20 min)
+      prompts = CORE_PROMPTS;
+  }
+
+  log(`🔍 INTERROGATOIRE: Démarrage mode ${mode} (${prompts.length} questions)...`, 'info');
 
   try {
-    for (let i = 0; i < INTERROGATION_PROMPTS.length; i++) {
-      const promptData = INTERROGATION_PROMPTS[i];
+    for (let i = 0; i < prompts.length; i++) {
+      const promptData = prompts[i];
 
-      log(`📤 Question ${i + 1}/${INTERROGATION_PROMPTS.length}: ${promptData.id}`, 'info');
+      log(`📤 Question ${i + 1}/${prompts.length}: ${promptData.id}`, 'info');
 
       // Report progress
       chrome.runtime.sendMessage({
         action: 'interrogationProgress',
         current: i + 1,
-        total: INTERROGATION_PROMPTS.length,
-        question: promptData.id
+        total: prompts.length,
+        question: promptData.id,
+        mode: mode
       }).catch(() => {});
 
       // Send prompt and wait for response

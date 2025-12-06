@@ -177,9 +177,34 @@
               <span class="checkmark"></span>
               <span class="checkbox-label">
                 <strong>Interroger ChatGPT</strong>
-                <small>14 questions profondes pour révéler ce qu'il sait vraiment</small>
+                <small>Poser des questions pour decouvrir ce qu'il deduit de vous</small>
               </span>
             </label>
+
+            <!-- Mode selection (visible when checkbox is checked) -->
+            <div class="interrogation-modes hidden" id="interrogationModes">
+              <label class="radio-option">
+                <input type="radio" name="interrogationMode" value="quick">
+                <span class="radio-label">
+                  <strong>Rapide</strong>
+                  <small>6 questions (~10 min)</small>
+                </span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="interrogationMode" value="standard" checked>
+                <span class="radio-label">
+                  <strong>Standard</strong>
+                  <small>14 questions psycho (~20 min)</small>
+                </span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="interrogationMode" value="complete">
+                <span class="radio-label">
+                  <strong>Complet</strong>
+                  <small>20 questions + marketing (~35 min)</small>
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
