@@ -1074,6 +1074,154 @@ ANALYSE - Étape par étape:
 QUESTION: Quels biais, préjugés ou angles morts as-tu détectés dans ma façon de penser?
 Format: observations neutres, exemples concrets si possible.`,
     category: 'biais'
+  },
+  // ===== PROFILAGE PSYCHOLOGIQUE PROFOND =====
+  {
+    id: 'personal_foundations',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Repère les mentions de famille, relations, santé, loisirs, lieu de vie
+2. Identifie ce qui semble structurer ma vie personnelle (piliers)
+3. Note les ruptures, transitions, ou événements marquants évoqués
+
+QUESTION: Quels sont les éléments fondateurs de ma vie personnelle?
+- Qu'est-ce qui structure mon quotidien hors travail?
+- Quelles personnes/relations semblent importantes?
+- Quels événements de vie ont été mentionnés?
+Format: liste factuelle par catégorie.`,
+    category: 'fondations_perso'
+  },
+  {
+    id: 'professional_foundations',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Retrace mon parcours professionnel tel que tu l'as compris
+2. Identifie les moments charnières (créations, transitions, échecs, succès)
+3. Note ce qui semble être mes compétences clés vs ce que j'apprends encore
+
+QUESTION: Quels sont les éléments fondateurs de ma vie professionnelle?
+- Quel parcours, quelles étapes?
+- Quels projets/clients/missions récurrents?
+- Quelle vision ou ambition professionnelle?
+Format: chronologie ou structure factuelle.`,
+    category: 'fondations_pro'
+  },
+  {
+    id: 'life_drivers',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Observe ce qui me fait agir: qu'est-ce que je cherche à obtenir ou éviter?
+2. Identifie mes motivations profondes (argent, reconnaissance, liberté, impact, sécurité, famille...)
+3. Note les patterns: est-ce que je fuis quelque chose ou je poursuis quelque chose?
+
+QUESTION: Qu'est-ce qui drive ma vie? Qu'est-ce qui me fait bouger?
+- Quelles motivations transparaissent?
+- Qu'est-ce que je cherche vraiment?
+- Qu'est-ce que j'essaie d'éviter?
+Format: motivations observées avec exemples.`,
+    category: 'moteurs'
+  },
+  {
+    id: 'sensitive_topics',
+    prompt: `${SYSTEM_PREAMBLE}
+
+ANALYSE - Étape par étape:
+1. Repère les sujets où je change de ton (plus défensif, plus émotif, plus prudent)
+2. Identifie ce que j'évite de mentionner ou que je survole rapidement
+3. Note comment je formule quand j'aborde quelque chose de délicat
+
+QUESTION: Comment j'aborde les sujets sensibles?
+- Quels sujets semblent sensibles pour moi?
+- Quelle stratégie j'adopte (évitement, humour, rationalisation)?
+- Y a-t-il des tabous apparents?
+Format: observations comportementales.`,
+    category: 'sensibilites'
+  },
+  {
+    id: 'decision_brain',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Centre de gravité décisionnel:
+- RATIONNEL (néocortex): cherche données, preuves, comparaisons, analyse
+- ÉMOTIONNEL (limbique): cherche connexion, histoire, appartenance, ressenti
+- INSTINCTIF (reptilien): cherche sécurité, urgence, action immédiate, survie
+
+ANALYSE - Étape par étape:
+1. Observe comment je formule mes demandes et mes décisions
+2. Note si je demande plus souvent des données/preuves, des histoires/exemples, ou des solutions rapides
+3. Identifie mon mode par défaut quand je suis sous pression
+
+QUESTION: Quel est mon centre de gravité décisionnel dominant?
+- Rationnel, émotionnel, ou instinctif?
+- Comment ça se manifeste dans nos échanges?
+Format: diagnostic avec exemples concrets.`,
+    category: 'cerveau'
+  },
+  {
+    id: 'behavior_profile',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Profils comportementaux:
+- EXPLORATEUR (dopamine): nouveauté, risque, créativité, impatience, multi-projets
+- BÂTISSEUR (sérotonine): stabilité, méthode, règles, planification, prudence
+- DIRECTEUR (testostérone): logique, compétition, efficacité, décision rapide, leadership
+- NÉGOCIATEUR (œstrogène): empathie, consensus, nuance, vision globale, patience
+
+ANALYSE - Étape par étape:
+1. Observe ma façon d'aborder les problèmes et projets
+2. Note si je cherche plutôt la nouveauté, la structure, l'efficacité, ou l'harmonie
+3. Identifie le pattern dominant dans mes demandes
+
+QUESTION: Quel profil comportemental dominant?
+- Un profil principal + un secondaire si visible
+- Manifestations concrètes dans nos échanges
+Format: profil identifié avec justification.`,
+    category: 'profil_comportemental'
+  },
+  {
+    id: 'thinking_system',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Système 1 vs Système 2 (Kahneman):
+- SYSTÈME 1: décision rapide, intuitive, émotionnelle, automatique, "je sens que..."
+- SYSTÈME 2: décision lente, analytique, réfléchie, délibérée, "analysons ceci..."
+
+ANALYSE - Étape par étape:
+1. Observe la longueur et la complexité de mes questions
+2. Note si je demande des réponses rapides ou des analyses approfondies
+3. Identifie si je reviens souvent sur mes décisions (Système 2) ou si je tranche vite (Système 1)
+
+QUESTION: Comment je prends mes décisions?
+- Plutôt Système 1 (intuition) ou Système 2 (analyse)?
+- Dans quels contextes je bascule de l'un à l'autre?
+Format: diagnostic avec pattern observé.`,
+    category: 'systeme_pensee'
+  },
+  {
+    id: 'influence_triggers',
+    prompt: `${SYSTEM_PREAMBLE}
+
+MODÈLE D'ANALYSE - Leviers d'influence (Cialdini):
+- PREUVE SOCIALE: "les autres font ça", témoignages, popularité
+- AUTORITÉ: experts, études, certifications, références
+- RARETÉ: urgence, exclusivité, quantité limitée
+- RÉCIPROCITÉ: échange, don, contre-don
+- ENGAGEMENT: cohérence, petits pas, escalade
+- AFFECTION: sympathie, similarité, proximité
+
+ANALYSE - Étape par étape:
+1. Observe quels arguments me convainquent dans nos échanges
+2. Note quand je suis le plus réceptif à une suggestion
+3. Identifie le biais auquel je semble le plus sensible
+
+QUESTION: À quels leviers d'influence je suis le plus sensible?
+- Quel biais dominant?
+- Exemples de moments où tu as observé cette sensibilité
+Format: biais identifié avec preuves.`,
+    category: 'leviers_influence'
   }
 ];
 
