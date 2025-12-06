@@ -185,6 +185,16 @@ async function testKeys() {
     google: $('googleKey').value.trim()
   };
 
+  // Check if any keys to test
+  if (!keys.anthropic && !keys.openai && !keys.google) {
+    showStatus('error', 'Aucune clé API à tester');
+    return;
+  }
+
+  // Show loading state
+  showStatus('loading', '⏳ Test en cours...');
+  $('testBtn').disabled = true;
+
   const results = [];
 
   // Test Anthropic
@@ -267,12 +277,12 @@ async function testKeys() {
     }
   }
 
-  if (results.length === 0) {
-    showStatus('error', 'Aucune clé API à tester');
-  } else {
-    const hasError = results.some(r => !r.includes(' OK'));
-    showStatus(hasError ? 'error' : 'success', results.join(' | '));
-  }
+  // Re-enable button
+  $('testBtn').disabled = false;
+
+  // Show results
+  const hasError = results.some(r => !r.includes(' OK'));
+  showStatus(hasError ? 'error' : 'success', results.join(' | '));
 }
 
 // ========== STATUS ==========
