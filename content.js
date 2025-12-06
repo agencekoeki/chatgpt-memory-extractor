@@ -961,11 +961,200 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Nouveau: interrogation
+  if (request.action === 'startInterrogation') {
+    sendResponse({ started: true });
+
+    startInterrogation().then(result => {
+      if (result.error) {
+        chrome.runtime.sendMessage({
+          action: 'interrogationComplete',
+          results: [],
+          error: result.message
+        }).catch(() => {});
+      }
+    });
+
+    return true;
+  }
+
   return false;
 });
 
+// ========== INTERROGATION ==========
+// Prompts à envoyer à ChatGPT pour découvrir ce qu'il sait
+const INTERROGATION_PROMPTS = [
+  {
+    id: 'identity',
+    prompt: "En te basant uniquement sur nos conversations passées, décris-moi en quelques phrases. Qui suis-je selon toi ?",
+    category: 'identite'
+  },
+  {
+    id: 'interests',
+    prompt: "Quels sont mes principaux centres d'intérêt et passions d'après nos échanges ?",
+    category: 'interets'
+  },
+  {
+    id: 'profession',
+    prompt: "Que sais-tu de ma situation professionnelle et mon parcours ?",
+    category: 'professionnel'
+  },
+  {
+    id: 'personality',
+    prompt: "Quels traits de personnalité as-tu remarqués chez moi à travers nos conversations ?",
+    category: 'personnalite'
+  },
+  {
+    id: 'values',
+    prompt: "Quelles valeurs semblent importantes pour moi selon toi ?",
+    category: 'valeurs'
+  },
+  {
+    id: 'challenges',
+    prompt: "Quels défis ou problèmes ai-je mentionnés ou semblé affronter ?",
+    category: 'defis'
+  }
+];
+
+let isInterrogating = false;
+let interrogationResults = [];
+
+async function startInterrogation() {
+  if (isInterrogating) {
+    return { error: true, message: 'Interrogatoire déjà en cours' };
+  }
+
+  isInterrogating = true;
+  interrogationResults = [];
+  log('🔍 INTERROGATOIRE: Démarrage...', 'info');
+
+  try {
+    for (let i = 0; i < INTERROGATION_PROMPTS.length; i++) {
+      const promptData = INTERROGATION_PROMPTS[i];
+
+      log(`📤 Question ${i + 1}/${INTERROGATION_PROMPTS.length}: ${promptData.id}`, 'info');
+
+      // Report progress
+      chrome.runtime.sendMessage({
+        action: 'interrogationProgress',
+        current: i + 1,
+        total: INTERROGATION_PROMPTS.length,
+        question: promptData.id
+      }).catch(() => {});
+
+      // Send prompt and wait for response
+      const response = await sendPromptAndWaitForResponse(promptData.prompt);
+
+      if (response) {
+        interrogationResults.push({
+          id: promptData.id,
+          category: promptData.category,
+          question: promptData.prompt,
+          response: response,
+          timestamp: new Date().toISOString()
+        });
+        log(`📥 Réponse reçue pour ${promptData.id}`, 'success');
+      } else {
+        log(`⚠️ Pas de réponse pour ${promptData.id}`, 'warning');
+      }
+
+      // Wait between prompts to avoid rate limiting
+      await wait(2000);
+    }
+
+    isInterrogating = false;
+
+    chrome.runtime.sendMessage({
+      action: 'interrogationComplete',
+      results: interrogationResults
+    }).catch(() => {});
+
+    log(`✅ Interrogatoire terminé: ${interrogationResults.length} réponses`, 'success');
+    return { success: true, results: interrogationResults };
+
+  } catch (error) {
+    isInterrogating = false;
+    log('❌ Erreur interrogatoire: ' + error.message, 'error');
+    return { error: true, message: error.message };
+  }
+}
+
+async function sendPromptAndWaitForResponse(prompt) {
+  // Find the input field
+  const inputSelector = 'textarea[data-id="root"], #prompt-textarea, textarea[placeholder*="Message"], div[contenteditable="true"][data-placeholder]';
+  const input = document.querySelector(inputSelector);
+
+  if (!input) {
+    log('Input field not found', 'error');
+    return null;
+  }
+
+  // Count existing messages to know when a new one appears
+  const existingMessages = document.querySelectorAll('[data-message-author-role="assistant"]').length;
+
+  // Focus and type the prompt
+  input.focus();
+
+  if (input.tagName === 'TEXTAREA') {
+    input.value = prompt;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    // contenteditable div
+    input.textContent = prompt;
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+  }
+
+  await wait(300);
+
+  // Find and click send button
+  const sendButton = document.querySelector('button[data-testid="send-button"], button[aria-label*="Send"], button[aria-label*="Envoyer"]');
+
+  if (!sendButton) {
+    log('Send button not found', 'error');
+    return null;
+  }
+
+  simulateClick(sendButton);
+  log('Prompt envoyé, attente de la réponse...', 'debug');
+
+  // Wait for response (with timeout)
+  const maxWait = 60000; // 60 seconds
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWait) {
+    await wait(1000);
+
+    // Check if a new assistant message appeared
+    const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
+
+    if (messages.length > existingMessages) {
+      // New message appeared, wait for it to finish streaming
+      await wait(2000);
+
+      // Check if still streaming (button might show "Stop generating")
+      const stopButton = document.querySelector('button[aria-label*="Stop"], button[data-testid="stop-button"]');
+      if (stopButton) {
+        // Still generating, wait more
+        log('Réponse en cours de génération...', 'debug');
+        await wait(3000);
+      }
+
+      // Get the last assistant message
+      const lastMessage = messages[messages.length - 1];
+      const responseText = lastMessage.textContent?.trim();
+
+      if (responseText && responseText.length > 20) {
+        return responseText;
+      }
+    }
+  }
+
+  log('Timeout en attente de réponse', 'warning');
+  return null;
+}
+
 // ========== INIT ==========
-log('🔧 Memory Extractor v3.12 DIAGNOSTIC chargé', 'info');
+log('🔧 Memory Extractor v3.13 + Interrogation chargé', 'info');
 log('Pour diagnostic manuel, ouvrez la console et tapez:', 'info');
 log('  - Étape 1 (menu user): copy(await step1_findUserMenu())', 'debug');
 log('  - Étape 2 (settings): copy(await step2_findSettings())', 'debug');
@@ -980,5 +1169,6 @@ window.__memoryExtractor = {
   step5: step5_findManageButton,
   step6: step6_extractFromModal,
   diagAllButtons,
-  runDiagnosticOnly
+  runDiagnosticOnly,
+  startInterrogation
 };

@@ -50,6 +50,13 @@ async function handleMessage(request, sender) {
     case 'getSettings':
       return await Storage.getSettings();
 
+    // ===== INTERROGATION =====
+    case 'saveInterrogation':
+      return await Storage.saveInterrogation(request.results);
+
+    case 'getInterrogation':
+      return await Storage.getInterrogation();
+
     // ===== ANALYSIS =====
     case 'startAnalysis':
       return await startAnalysis(request.memories, request.options);
@@ -101,6 +108,13 @@ async function startAnalysis(memories, options = {}) {
     // Save memories first
     await Storage.saveMemories(memories);
 
+    // Get interrogation results if available
+    const interrogation = await Storage.getInterrogation();
+    if (interrogation && interrogation.length > 0) {
+      console.log(`[Background] Including ${interrogation.length} interrogation responses in analysis`);
+      options.interrogation = interrogation;
+    }
+
     // Start pipeline
     const pipeline = new AnalysisPipeline(keys, options);
 
@@ -115,6 +129,11 @@ async function startAnalysis(memories, options = {}) {
     };
 
     const results = await pipeline.analyze(memories, onProgress);
+
+    // Include interrogation in results
+    if (interrogation && interrogation.length > 0) {
+      results.interrogation = interrogation;
+    }
 
     // Save results
     await Storage.saveAnalysisResults(results);

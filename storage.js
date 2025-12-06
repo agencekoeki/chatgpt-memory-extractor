@@ -180,6 +180,20 @@ class StorageClass {
     });
   }
 
+  // ========== INTERROGATION RESULTS ==========
+  async saveInterrogation(results) {
+    return this.saveSetting('interrogation', results);
+  }
+
+  async getInterrogation() {
+    const result = await this.getSetting('interrogation');
+    return result || [];
+  }
+
+  async clearInterrogation() {
+    return this.saveSetting('interrogation', []);
+  }
+
   // ========== SETTINGS & API KEYS ==========
   async saveApiKeys(keys) {
     return this.saveSetting('apiKeys', keys);

@@ -10,6 +10,8 @@ let hasConsented = false;
 let apiProvider = null;
 let isOnChatGPT = false;
 let isExtracting = false;
+let isInterrogating = false;
+let interrogationResults = [];
 let isAnalyzing = false;
 
 // ========== DOM ELEMENTS ==========
@@ -107,7 +109,7 @@ function setupListeners() {
   // Extract screen
   document.getElementById('btnStartExtract').addEventListener('click', startExtraction);
   document.getElementById('btnBackToSplash').addEventListener('click', () => goToScreen('splash'));
-  document.getElementById('btnToAnalysis').addEventListener('click', () => goToScreen('analyze'));
+  document.getElementById('btnToAnalysis').addEventListener('click', handleContinueToAnalysis);
   document.getElementById('btnSkipExtract').addEventListener('click', () => goToScreen('analyze'));
 
   // Analyze screen
@@ -184,6 +186,7 @@ function updateExtractScreen() {
   const ready = document.getElementById('extractReady');
   const extracting = document.getElementById('extracting');
   const done = document.getElementById('extractDone');
+  const interrogating = document.getElementById('interrogating');
   const btnContinue = document.getElementById('btnToAnalysis');
   const btnSkip = document.getElementById('btnSkipExtract');
 
@@ -192,9 +195,13 @@ function updateExtractScreen() {
   ready.classList.add('hidden');
   extracting.classList.add('hidden');
   done.classList.add('hidden');
+  interrogating.classList.add('hidden');
   btnSkip.classList.add('hidden');
 
-  if (isExtracting) {
+  if (isInterrogating) {
+    interrogating.classList.remove('hidden');
+    btnContinue.disabled = true;
+  } else if (isExtracting) {
     extracting.classList.remove('hidden');
     btnContinue.disabled = true;
   } else if (memories.length > 0) {
@@ -286,6 +293,48 @@ async function startExtraction() {
   }
 }
 
+// ========== CONTINUE TO ANALYSIS (with optional interrogation) ==========
+async function handleContinueToAnalysis() {
+  const enableInterrogation = document.getElementById('enableInterrogation')?.checked;
+
+  if (enableInterrogation && isOnChatGPT) {
+    // Start interrogation first
+    await startInterrogation();
+  } else {
+    // Go directly to analysis
+    goToScreen('analyze');
+  }
+}
+
+// ========== INTERROGATION ==========
+async function startInterrogation() {
+  if (isInterrogating) return;
+
+  try {
+    isInterrogating = true;
+    updateExtractScreen();
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    const response = await sendTabMessage(tab.id, { action: 'startInterrogation' });
+
+    if (!response) {
+      throw new Error('Pas de reponse - Rafraichissez la page');
+    }
+
+    if (response.error) {
+      throw new Error(response.message || 'Echec de l\'interrogatoire');
+    }
+
+  } catch (error) {
+    console.error('Interrogation error:', error);
+    isInterrogating = false;
+    updateExtractScreen();
+    // Continue to analysis anyway
+    goToScreen('analyze');
+  }
+}
+
 // ========== ANALYSIS ==========
 async function startAnalysis() {
   if (isAnalyzing || memories.length === 0) return;
@@ -336,6 +385,14 @@ function handleMessage(request, sender, sendResponse) {
       handleAnalysisProgress(request);
       break;
 
+    case 'interrogationProgress':
+      handleInterrogationProgress(request);
+      break;
+
+    case 'interrogationComplete':
+      handleInterrogationComplete(request);
+      break;
+
     case 'analysisComplete':
       isAnalyzing = false;
       if (request.results.success) {
@@ -380,6 +437,37 @@ function handleAnalysisProgress(data) {
       setAgentState('charterer', 'active');
       break;
   }
+}
+
+function handleInterrogationProgress(data) {
+  const { current, total, question } = data;
+  const statusEl = document.getElementById('interrogationStatus');
+  const progressBar = document.getElementById('interrogationProgressBar');
+
+  if (statusEl) {
+    statusEl.textContent = `Question ${current}/${total}: ${question}`;
+  }
+  if (progressBar) {
+    progressBar.style.width = `${(current / total) * 100}%`;
+  }
+}
+
+function handleInterrogationComplete(data) {
+  isInterrogating = false;
+  interrogationResults = data.results || [];
+
+  console.log(`[Popup] Interrogation complete: ${interrogationResults.length} responses`);
+
+  // Save interrogation results
+  if (interrogationResults.length > 0) {
+    chrome.runtime.sendMessage({
+      action: 'saveInterrogation',
+      results: interrogationResults
+    });
+  }
+
+  // Go to analysis screen
+  goToScreen('analyze');
 }
 
 function setAgentState(agentId, state) {
