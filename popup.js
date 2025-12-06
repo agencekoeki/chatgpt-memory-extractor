@@ -361,8 +361,39 @@ function openReport() {
   chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
 }
 
-function restart() {
-  goToScreen('splash');
+async function restart() {
+  const confirmed = confirm(
+    '⚠️ Tout reinitialiser ?\n\n' +
+    'Cela va supprimer :\n' +
+    '• Toutes les memoires extraites\n' +
+    '• Le taggage E-E-A-T\n' +
+    '• L\'analyse persona\n\n' +
+    'Tu devras tout re-extraire depuis ChatGPT.'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    // Clear all data in background
+    await chrome.runtime.sendMessage({ action: 'clearAll' });
+
+    // Reset local state
+    memories = [];
+    analysisResults = null;
+    isExtracting = false;
+    isAnalyzing = false;
+
+    // Update UI
+    updateSplashScreen();
+    goToScreen('splash');
+
+    // Optional: show success feedback
+    console.log('[Popup] Full reset complete');
+
+  } catch (e) {
+    console.error('Reset error:', e);
+    alert('Erreur lors de la reinitialisation.');
+  }
 }
 
 async function exportJson() {

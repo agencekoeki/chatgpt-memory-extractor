@@ -60,6 +60,17 @@ async function handleMessage(request, sender) {
     case 'getAnalysisResults':
       return await Storage.getAnalysisResults();
 
+    case 'clearAnalysisResults':
+      return await Storage.clearMemories(); // Clears memories, labels, and analysis
+
+    case 'clearAll':
+      // Full reset: clear all data and reset state
+      isProcessing = false;
+      analysisQueue = [];
+      await Storage.clearMemories(); // Clears memories, labels, and analysis
+      console.log('[Background] All data cleared');
+      return { success: true };
+
     case 'cancelAnalysis':
       return cancelAnalysis();
 
