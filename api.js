@@ -6,6 +6,27 @@ export class APIClient {
     this.keys = keys;
   }
 
+  // ========== TIMEOUT WRAPPER ==========
+  async fetchWithTimeout(url, options = {}, timeoutMs = 120000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`API timeout after ${timeoutMs / 1000}s`);
+      }
+      throw error;
+    }
+  }
+
   // ========== ANTHROPIC (Claude) ==========
   async callAnthropic(prompt, options = {}) {
     const model = options.model || 'claude-3-5-haiku-20241022';
@@ -13,7 +34,7 @@ export class APIClient {
 
     console.log(`[API] Calling Anthropic with model: ${model}`);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await this.fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -26,7 +47,7 @@ export class APIClient {
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }]
       })
-    });
+    }, 120000); // 2 min timeout
 
     if (!response.ok) {
       const error = await response.json();
@@ -44,7 +65,7 @@ export class APIClient {
     const model = options.model || 'gpt-4o-mini';
     const maxTokens = options.maxTokens || 1024;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await this.fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -55,7 +76,7 @@ export class APIClient {
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }]
       })
-    });
+    }, 120000); // 2 min timeout
 
     if (!response.ok) {
       const error = await response.json();
@@ -73,7 +94,7 @@ export class APIClient {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.keys.google}`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -82,7 +103,7 @@ export class APIClient {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: maxTokens }
       })
-    });
+    }, 120000); // 2 min timeout
 
     if (!response.ok) {
       const error = await response.json();
@@ -90,6 +111,13 @@ export class APIClient {
     }
 
     const data = await response.json();
+
+    // Vérifier si la réponse contient des candidats valides
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      console.error('[API] Google empty response:', data);
+      throw new Error('Google API returned empty response');
+    }
+
     return data.candidates[0].content.parts[0].text;
   }
 

@@ -1620,6 +1620,12 @@ async function startInterrogation(mode = 'standard') {
           timestamp: new Date().toISOString()
         });
         log(`📥 Réponse reçue pour ${promptData.id}`, 'success');
+
+        // Sauvegarde progressive après chaque réponse (au cas où crash/fermeture)
+        chrome.runtime.sendMessage({
+          action: 'saveInterrogation',
+          results: interrogationResults
+        }).catch(() => {});
       } else {
         log(`⚠️ Pas de réponse pour ${promptData.id}`, 'warning');
       }
@@ -1630,12 +1636,25 @@ async function startInterrogation(mode = 'standard') {
 
     isInterrogating = false;
 
+    // IMPORTANT: Sauvegarder les résultats directement dans IndexedDB via background
+    // Cela garantit que les résultats sont sauvegardés même si le popup est fermé
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'saveInterrogation',
+        results: interrogationResults
+      });
+      log(`💾 Résultats sauvegardés: ${interrogationResults.length} réponses`, 'success');
+    } catch (e) {
+      log(`⚠️ Erreur sauvegarde: ${e.message}`, 'warning');
+    }
+
     // Marquer l'interrogation comme terminée dans storage
     await chrome.storage.local.set({
       interrogationState: {
         isRunning: false,
         completed: true,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        resultsCount: interrogationResults.length
       }
     });
 
