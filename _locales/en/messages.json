@@ -294,9 +294,13 @@
     "message": "Freud vs Jung: The legendary debate...",
     "description": "Dual analysis progress message"
   },
+  "agent_maslow": {
+    "message": "Maslow",
+    "description": "Maslow profiler agent name"
+  },
   "agent_profiler_status": {
-    "message": "The Profiler analyzes ChatGPT revelations...",
-    "description": "Profiler progress message"
+    "message": "Maslow analyzes ChatGPT revelations...",
+    "description": "Maslow profiler progress message"
   },
 
   "complete_title": {

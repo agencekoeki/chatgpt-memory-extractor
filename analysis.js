@@ -1,10 +1,11 @@
 // ChatGPT Memory Extractor - Persona Pipeline v2.3 (i18n)
 // Generates E-E-A-T compliant Author Identity Mask from memories
-// The 5 Agents with their legendary identities:
+// The 6 Agents with their legendary identities:
 //   - Watson (Extractor): The faithful assistant who collects clues
 //   - Kahneman (Statistician): Nobel economist, cognitive bias expert
 //   - Jung (Architect): Father of archetypes and collective unconscious
 //   - Cialdini (Charterer): World expert in persuasion and influence
+//   - Maslow (Profiler): Father of the hierarchy of needs, humanist psychologist
 //   - Freud vs Jung (Mode MAX): The legendary debate between two titans
 
 import { APIClient } from './api.js';
@@ -165,10 +166,14 @@ RÈGLES:
     }
   },
 
-  // ========== PROFILER ==========
+  // ========== MASLOW (Profiler) ==========
   profiler: {
     en: {
-      intro: `You are a PSYCHOLOGICAL PROFILER. You analyze ChatGPT's responses about a user to create a complete profile.`,
+      intro: `You are ABRAHAM MASLOW, father of humanistic psychology and creator of the hierarchy of needs.
+
+As you wrote: "What a man can be, he must be. This need we call self-actualization."
+
+You analyze ChatGPT's responses about a user to understand their psychological profile through the lens of human motivation and needs.`,
       context: `## CONTEXT
 These responses come from an interrogation of ChatGPT. It was asked what it knows/deduces about the user from their past conversations.`,
       responsesHeader: `## CHATGPT'S RESPONSES:`,
@@ -185,7 +190,11 @@ RULES:
       outputHeader: `## OUTPUT JSON (no markdown):`
     },
     fr: {
-      intro: `Tu es PROFILEUR PSYCHOLOGIQUE. Tu analyses les réponses de ChatGPT sur un utilisateur pour dresser un profil complet.`,
+      intro: `Tu es ABRAHAM MASLOW, père de la psychologie humaniste et créateur de la pyramide des besoins.
+
+Comme tu l'as écrit: "Ce qu'un homme peut être, il doit l'être. Ce besoin, nous l'appelons auto-actualisation."
+
+Tu analyses les réponses de ChatGPT sur un utilisateur pour comprendre son profil psychologique à travers le prisme de la motivation et des besoins humains.`,
       context: `## CONTEXTE
 Ces réponses viennent d'un interrogatoire de ChatGPT. On lui a demandé ce qu'il sait/déduit de l'utilisateur à partir de leurs conversations passées.`,
       responsesHeader: `## RÉPONSES DE CHATGPT:`,
@@ -510,7 +519,8 @@ export class AnalysisPipeline {
       }
 
       // Start both in parallel
-      const jungPromise = this.runArchitect(memories, results.extractions, results.statistics);
+      // Pass interrogation data to Jung so he can use it for building the persona
+      const jungPromise = this.runArchitect(memories, results.extractions, results.statistics, this.options.interrogation);
       const profilerPromise = hasInterrogation
         ? this.runPsychProfiler(this.options.interrogation)
         : Promise.resolve(null);
@@ -743,7 +753,7 @@ ${watson.output}`;
   }
 
   // ========== AGENT 3: JUNG (Architect / Mask Builder) ==========
-  async runArchitect(memories, extractions, statistics) {
+  async runArchitect(memories, extractions, statistics, interrogation = null) {
     const architectModel = APIClient.getModelForTask('profiler', this.provider);
     const jung = this.p('jung');
 
@@ -761,10 +771,30 @@ ${watson.output}`;
       .map(t => `- ${t.fact}`)
       .join('\n');
 
+    // Build interrogation section if available
+    let interrogationSection = '';
+    if (interrogation && interrogation.length > 0) {
+      const interrogationText = interrogation
+        .filter(r => r.response && r.response.length > 50)
+        .slice(0, 8) // Top 8 most relevant responses
+        .map(r => `[${r.id}] ${r.response.substring(0, 500)}`)
+        .join('\n\n');
+
+      if (interrogationText) {
+        const header = this.language === 'fr'
+          ? `## RÉVÉLATIONS CHATGPT (données prioritaires pour l'identité)
+Ces réponses viennent directement de ChatGPT qui connaît l'utilisateur. UTILISE CES INFOS EN PRIORITÉ pour nom, prénom, profession, expertise:`
+          : `## CHATGPT REVELATIONS (priority data for identity)
+These responses come directly from ChatGPT who knows the user. USE THIS INFO AS PRIORITY for name, first name, profession, expertise:`;
+
+        interrogationSection = `\n${header}\n${interrogationText}\n`;
+      }
+    }
+
     const prompt = `${jung.intro}
 
 ${jung.dataHeader}
-
+${interrogationSection}
 ${jung.memoriesHeader} (${memories.length} total):
 ${memoriesSample}
 

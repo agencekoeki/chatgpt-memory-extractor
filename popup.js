@@ -296,6 +296,11 @@ function updateAnalyzeScreen() {
     analyzing.classList.remove('hidden');
     btnReport.disabled = true;
 
+    // Show Maslow agent if interrogation data exists
+    if (interrogationResults?.length > 0) {
+      document.getElementById('agent-profiler')?.classList.remove('hidden');
+    }
+
     // Show dual agent if mode MAX is enabled
     if (document.getElementById('enableModeMax')?.checked) {
       agentDual?.classList.remove('hidden');
@@ -574,8 +579,12 @@ function handleAnalysisProgress(data) {
       break;
     case 'profiling':
       setAgentState('charterer', 'done');
+      setAgentState('profiler', 'active');
+      // Show the Maslow/profiler agent indicator
+      document.getElementById('agent-profiler')?.classList.remove('hidden');
       break;
     case 'dualAnalysis':
+      setAgentState('profiler', 'done');
       setAgentState('charterer', 'done');
       setAgentState('dual', 'active');
       // Show the dual agent indicator
