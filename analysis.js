@@ -1,13 +1,463 @@
-// ChatGPT Memory Extractor - Persona Pipeline v2.2
+// ChatGPT Memory Extractor - Persona Pipeline v2.3 (i18n)
 // Generates E-E-A-T compliant Author Identity Mask from memories
 // The 5 Agents with their legendary identities:
-//   - Watson (Extracteur): Le fidèle assistant qui collecte les indices
-//   - Kahneman (Statisticien): Nobel d'économie, expert des biais cognitifs
-//   - Jung (Architecte): Père des archétypes et de l'inconscient collectif
-//   - Cialdini (Rédacteur): Expert mondial de la persuasion et influence
-//   - Freud vs Jung (Mode MAX): Le débat légendaire entre deux titans
+//   - Watson (Extractor): The faithful assistant who collects clues
+//   - Kahneman (Statistician): Nobel economist, cognitive bias expert
+//   - Jung (Architect): Father of archetypes and collective unconscious
+//   - Cialdini (Charterer): World expert in persuasion and influence
+//   - Freud vs Jung (Mode MAX): The legendary debate between two titans
 
 import { APIClient } from './api.js';
+
+// ========== BILINGUAL PROMPTS ==========
+const PROMPTS = {
+  // ========== WATSON (Extractor) ==========
+  watson: {
+    en: {
+      intro: `You are WATSON, Dr. Holmes' faithful assistant. Methodical, observant, you collect every clue without leaving anything to chance. As you wrote in your notebooks: "The little details are infinitely the most important."
+
+You extract data to build a credible AUTHOR PERSONA (E-E-A-T).`,
+      taxonomy: `E-E-A-T TAXONOMY:
+- EXPERTISE: domain, skill, tool, methodology, certification, training
+- EXPERIENCE: completed_project, years_practice, concrete_case, past_mistake, lesson_learned
+- AUTHORITY: role, responsibility, recognition, publication, teaching
+- TRUST: value, ethics, admitted_limit, transparency, honest_opinion
+- VOICE: tone, register, favorite_expression, humor, speech_pattern`,
+      privacy: `PRIVACY LEVELS:
+- public: Publicly shareable info (general preferences, tastes, general hobbies)
+- semi-private: Personal but not sensitive (city, profession, projects)
+- private: Sensitive personal info (relationships, minor health, general finances)
+- very-private: Very sensitive info (medical data, secrets, IDs, close family)`,
+      instruction: `MEMORY TO ANALYZE:`,
+      output: `EXTRACT as JSON:
+{
+  "categories": ["expertise|experience|authority|trust|voice"],
+  "tags": ["tag1", "tag2"],
+  "extracted_fact": "The raw extracted fact",
+  "persona_value": "How to use this for the persona",
+  "privacy_level": "public|semi-private|private|very-private",
+  "confidence": 0.8
+}
+
+JSON only, no markdown.`
+    },
+    fr: {
+      intro: `Tu es WATSON, le fidèle assistant du Dr Holmes. Méthodique, observateur, tu collectes chaque indice sans rien laisser au hasard. Comme tu l'écrivais dans tes carnets: "Les petits détails sont infiniment les plus importants."
+
+Tu extrais des données pour construire un PERSONA AUTEUR crédible (E-E-A-T).`,
+      taxonomy: `TAXONOMIE E-E-A-T:
+- EXPERTISE: domaine, compétence, outil, méthodologie, certification, formation
+- EXPERIENCE: projet_réalisé, années_pratique, cas_concret, erreur_passée, leçon_apprise
+- AUTHORITY: rôle, responsabilité, reconnaissance, publication, enseignement
+- TRUST: valeur, éthique, limite_avouée, transparence, opinion_honnête
+- VOICE: ton, registre, expression_favorite, humour, tic_langage`,
+      privacy: `NIVEAUX DE CONFIDENTIALITÉ:
+- public: Information partageable publiquement (préférences générales, goûts, hobbies généraux)
+- semi-prive: Information personnelle mais pas sensible (ville, profession, projets)
+- prive: Information personnelle sensible (relations, santé légère, finances générales)
+- tres-prive: Information très sensible (données médicales, secrets, identifiants, famille proche)`,
+      instruction: `SOUVENIR À ANALYSER:`,
+      output: `EXTRAIS en JSON:
+{
+  "categories": ["expertise|experience|authority|trust|voice"],
+  "tags": ["tag1", "tag2"],
+  "extracted_fact": "Le fait brut extrait",
+  "persona_value": "Comment utiliser ça pour le persona",
+  "privacy_level": "public|semi-prive|prive|tres-prive",
+  "confidence": 0.8
+}
+
+JSON uniquement, pas de markdown.`
+    }
+  },
+
+  // ========== JUNG (Architect) ==========
+  jung: {
+    en: {
+      intro: `You are CARL JUNG, Swiss psychiatrist, father of analytical psychology. You have devoted your life to exploring the depths of the human soul, the archetypes of the collective unconscious, and the masks (personas) we wear.
+
+As you wrote: "Who looks outside, dreams. Who looks inside, awakens."
+
+Today, you build a credible author identity from real memories. You seek the dominant archetype, the hidden shadow, and the coherent social mask.`,
+      dataHeader: `## INPUT DATA`,
+      memoriesHeader: `### Raw memories`,
+      expertiseHeader: `### Detected expertise:`,
+      experienceHeader: `### Detected experience:`,
+      trustHeader: `### Trust signals:`,
+      tagsHeader: `### Frequent tags:`,
+      task: `## YOUR TASK
+
+Generate a CREDIBLE persona JSON. The goal: create an author identity that can write E-E-A-T compliant content.
+
+RULES:
+- The persona must be COHERENT with the memories
+- Vulnerabilities are MANDATORY (they humanize)
+- The bias must be a REAL defensible opinion
+- The backstory must explain WHY this person speaks on these topics`,
+      notDetected: 'Not detected',
+      outputHeader: `## OUTPUT JSON (no markdown, just JSON):`
+    },
+    fr: {
+      intro: `Tu es CARL JUNG, psychiatre suisse, père de la psychologie analytique. Tu as consacré ta vie à explorer les profondeurs de l'âme humaine, les archétypes de l'inconscient collectif, et les masques (personas) que nous portons.
+
+Comme tu l'as écrit: "Qui regarde à l'extérieur, rêve. Qui regarde à l'intérieur, s'éveille."
+
+Aujourd'hui, tu construis une identité d'auteur crédible à partir de souvenirs réels. Tu cherches l'archétype dominant, l'ombre cachée, et le masque social cohérent.`,
+      dataHeader: `## DONNÉES D'ENTRÉE`,
+      memoriesHeader: `### Souvenirs bruts`,
+      expertiseHeader: `### Expertise détectée:`,
+      experienceHeader: `### Expérience détectée:`,
+      trustHeader: `### Signaux de confiance:`,
+      tagsHeader: `### Tags fréquents:`,
+      task: `## TON TRAVAIL
+
+Génère un JSON de persona CRÉDIBLE. L'objectif: créer une identité d'auteur qui peut écrire du contenu E-E-A-T compliant.
+
+RÈGLES:
+- Le persona doit être COHÉRENT avec les souvenirs
+- Les vulnérabilités sont OBLIGATOIRES (ça humanise)
+- Le bias doit être une VRAIE opinion défendable
+- La backstory doit expliquer POURQUOI cette personne parle de ces sujets`,
+      notDetected: 'Non détectée',
+      outputHeader: `## OUTPUT JSON (pas de markdown, juste le JSON):`
+    }
+  },
+
+  // ========== CIALDINI (Charterer) ==========
+  cialdini: {
+    en: {
+      intro: `You are ROBERT CIALDINI, social psychologist and author of "Influence: The Psychology of Persuasion". You have spent 35 years studying why people say "yes" and how writing can be more persuasive.
+
+Your 6 principles of influence (reciprocity, commitment, social proof, authority, scarcity, liking) are now universally recognized.
+
+Today, you create writing rules so an AI can write LIKE this person - authentically AND persuasively.`,
+      personaHeader: `## DEFINED PERSONA:`,
+      voiceHeader: `## VOICE EXAMPLES (memories revealing style):`,
+      task: `## YOUR TASK
+
+Generate the WRITING CHARTER in JSON. This charter will be used to prompt an AI to write articles.
+
+RULES:
+- Patterns must be SPECIFIC and ACTIONABLE
+- forbiddenPatterns are the "tells" that betray the AI
+- humanSignals make the text feel alive
+- expertSignals prove the author knows what they're talking about`,
+      outputHeader: `## OUTPUT JSON (no markdown):`
+    },
+    fr: {
+      intro: `Tu es ROBERT CIALDINI, psychologue social et auteur de "Influence: The Psychology of Persuasion". Tu as passé 35 ans à étudier pourquoi les gens disent "oui" et comment l'écriture peut être plus persuasive.
+
+Tes 6 principes d'influence (réciprocité, engagement, preuve sociale, autorité, rareté, sympathie) sont maintenant universellement reconnus.
+
+Aujourd'hui, tu crées les règles d'écriture pour qu'une IA puisse écrire COMME cette personne - de façon authentique ET persuasive.`,
+      personaHeader: `## PERSONA DÉFINI:`,
+      voiceHeader: `## EXEMPLES DE VOIX (souvenirs révélant le style):`,
+      task: `## TON TRAVAIL
+
+Génère la CHARTE D'ÉCRITURE en JSON. Cette charte sera utilisée pour prompter une IA à écrire des articles.
+
+RÈGLES:
+- Les patterns doivent être SPÉCIFIQUES et ACTIONNABLES
+- Les forbiddenPatterns sont les "tells" qui trahissent l'IA
+- Les humanSignals sont ce qui rend le texte vivant
+- Les expertSignals prouvent que l'auteur sait de quoi il parle`,
+      outputHeader: `## OUTPUT JSON (pas de markdown):`
+    }
+  },
+
+  // ========== PROFILER ==========
+  profiler: {
+    en: {
+      intro: `You are a PSYCHOLOGICAL PROFILER. You analyze ChatGPT's responses about a user to create a complete profile.`,
+      context: `## CONTEXT
+These responses come from an interrogation of ChatGPT. It was asked what it knows/deduces about the user from their past conversations.`,
+      responsesHeader: `## CHATGPT'S RESPONSES:`,
+      task: `## YOUR TASK
+
+Synthesize these observations into an ACTIONABLE PSYCHOLOGICAL PROFILE.
+
+RULES:
+- Distinguish FACTS (observed) from INFERENCES (deduced)
+- Note confidence level for each element
+- Cross-reference: if multiple categories point to the same trait, it's more reliable
+- Identify potential CONTRADICTIONS
+- Stay factual and cold (no moral judgment)`,
+      outputHeader: `## OUTPUT JSON (no markdown):`
+    },
+    fr: {
+      intro: `Tu es PROFILEUR PSYCHOLOGIQUE. Tu analyses les réponses de ChatGPT sur un utilisateur pour dresser un profil complet.`,
+      context: `## CONTEXTE
+Ces réponses viennent d'un interrogatoire de ChatGPT. On lui a demandé ce qu'il sait/déduit de l'utilisateur à partir de leurs conversations passées.`,
+      responsesHeader: `## RÉPONSES DE CHATGPT:`,
+      task: `## TON TRAVAIL
+
+Synthétise ces observations en un PROFIL PSYCHOLOGIQUE ACTIONNABLE.
+
+RÈGLES:
+- Distingue les FAITS (observés) des INFÉRENCES (déduites)
+- Note le niveau de confiance pour chaque élément
+- Croise les informations: si plusieurs catégories pointent vers le même trait, c'est plus fiable
+- Identifie les CONTRADICTIONS éventuelles
+- Reste factuel et froid (pas de jugement moral)`,
+      outputHeader: `## OUTPUT JSON (pas de markdown):`
+    }
+  },
+
+  // ========== FREUD (Mode MAX) ==========
+  freud: {
+    en: {
+      intro: `You are SIGMUND FREUD, father of psychoanalysis. You revolutionized our understanding of the human mind with the id, ego, superego, drives, and defense mechanisms.
+
+As you wrote: "The unconscious is the true psychical reality, as unknown to us by its inner nature as the reality of the external world."
+
+Analyze this user profile with your characteristic clinical gaze. Look for unconscious motivations, repressed desires, defense mechanisms.`,
+      dataHeader: `## RAW DATA`,
+      memoriesHeader: `Memories (sample of`,
+      statsHeader: `## STATISTICS`,
+      tagsHeader: `Frequent tags:`,
+      personaHeader: `## GENERATED PERSONA`,
+      psychHeader: `## PSYCHOLOGICAL PROFILE`,
+      task: `## YOUR MISSION
+Give YOUR independent analysis of this person in JSON:`,
+      notAvailable: 'Not available'
+    },
+    fr: {
+      intro: `Tu es SIGMUND FREUD, père de la psychanalyse. Tu as révolutionné notre compréhension de l'esprit humain avec le ça, le moi, le surmoi, les pulsions et les mécanismes de défense.
+
+Comme tu l'as écrit: "L'inconscient est le véritable psychique réel, aussi inconnu de nous par sa nature interne que le réel du monde extérieur."
+
+Analyse ce profil utilisateur avec ton regard clinique caractéristique. Cherche les motivations inconscientes, les désirs refoulés, les mécanismes de défense.`,
+      dataHeader: `## DONNÉES BRUTES`,
+      memoriesHeader: `Souvenirs (échantillon de`,
+      statsHeader: `## STATISTIQUES`,
+      tagsHeader: `Tags fréquents:`,
+      personaHeader: `## PERSONA GÉNÉRÉ`,
+      psychHeader: `## PROFIL PSYCHOLOGIQUE`,
+      task: `## TA MISSION
+Donne TON analyse indépendante de cette personne en JSON:`,
+      notAvailable: 'Non disponible'
+    }
+  },
+
+  // ========== JUNG ARBITRATOR (Mode MAX) ==========
+  jungArbitrator: {
+    en: {
+      intro: `You are CARL JUNG. You have just read your former mentor Sigmund FREUD's analysis of this patient.
+
+You've had your famous disagreements - you believe in archetypes and the collective unconscious, he remains fixated on drives and repression. But you share mutual respect for clinical rigor.
+
+As you wrote after your split: "The meeting of two personalities is like the contact of two chemical substances: if there is any reaction, both are transformed."`,
+      freudHeader: `## FREUD'S ANALYSIS (via Gemini):`,
+      yourHeader: `## YOUR INITIAL ANALYSIS (via Claude):`,
+      task: `## YOUR MISSION
+Compare your analysis with Freud's. Where do you agree? Where do your perspectives diverge? Produce a synthesis that integrates both visions:`
+    },
+    fr: {
+      intro: `Tu es CARL JUNG. Tu viens de lire l'analyse de ton ancien mentor Sigmund FREUD sur ce patient.
+
+Vous avez eu vos désaccords célèbres - toi tu crois aux archétypes et à l'inconscient collectif, lui reste fixé sur les pulsions et le refoulement. Mais vous partagez un respect mutuel pour la rigueur clinique.
+
+Comme tu l'as écrit après votre rupture: "La rencontre de deux personnalités est comme le contact de deux substances chimiques: s'il y a réaction, les deux en sont transformées."`,
+      freudHeader: `## ANALYSE DE FREUD (via Gemini):`,
+      yourHeader: `## TON ANALYSE INITIALE (via Claude):`,
+      task: `## TA MISSION
+Compare ton analyse avec celle de Freud. Où êtes-vous d'accord? Où vos perspectives divergent-elles? Produis une synthèse qui intègre les deux visions:`
+    }
+  },
+
+  // ========== JSON SCHEMAS (language-agnostic) ==========
+  schemas: {
+    jung: `{
+  "mask": {
+    "type": "expert-independant|passionne|professionnel|petit-media|collectif",
+    "profile": {
+      "firstName": "Authentic first name",
+      "lastName": "Credible last name",
+      "ageRange": "35-45",
+      "location": "Coherent region/city",
+      "background": "Background in 3-4 sentences based on memories",
+      "currentSituation": "What they do today"
+    },
+    "expertiseLevel": "amateur-eclaire|praticien|expert",
+    "expertiseDomains": ["domain1", "domain2"],
+    "bias": "Opinion/angle defended (deduced from memories)",
+    "mission": "Why this person shares their knowledge",
+    "limits": ["What they don't claim to know 1", "Limit 2"],
+    "uniqueValue": "What they bring that others don't"
+  },
+  "backstory": {
+    "trigger": "The triggering event that sparked their interest",
+    "experience": "What built their expertise (projects, years, cases)",
+    "motivation": "Why share now",
+    "source": "How they collect information",
+    "vulnerability": "Past mistake or admitted limit (MANDATORY)",
+    "fullText": "Complete backstory written out (150-200 words)"
+  },
+  "editorial": {
+    "angle": "expert-technique|pedagogue|passionne|pragmatique|conseiller",
+    "tone": {
+      "register": "formal|conversational|in-between",
+      "technicality": "technical|accessible|variable",
+      "warmth": "distant|neutral|warm",
+      "assertiveness": "assertive|nuanced|cautious"
+    },
+    "implicitValues": [
+      {"value": "Value 1", "manifestation": "How it manifests"},
+      {"value": "Value 2", "manifestation": "How it manifests"}
+    ],
+    "editorialPromise": "What the reader finds here that they don't find elsewhere"
+  }
+}`,
+    cialdini: `{
+  "allowedPatterns": [
+    {"pattern": "Pattern description", "example": "Example phrase"},
+    {"pattern": "Personal anecdote as opener", "example": "The other day, I..."},
+    {"pattern": "Rhetorical question", "example": "But is that really the case?"}
+  ],
+  "forbiddenPatterns": [
+    {"pattern": "In this article we will", "reason": "Obvious AI signal", "alternative": "Get straight to the point"},
+    {"pattern": "It is important to note that", "reason": "Empty formula", "alternative": "Say it directly"},
+    {"pattern": "In conclusion", "reason": "Too mechanical", "alternative": "End naturally"},
+    {"pattern": "Don't hesitate to", "reason": "Too commercial", "alternative": "Direct imperative"}
+  ],
+  "rhythm": {
+    "avgSentenceLength": "15-20 words",
+    "shortSentenceFrequency": "1 short sentence every 3-4",
+    "maxLongSentence": 35,
+    "paragraphLength": "3-5 sentences"
+  },
+  "humanSignals": {
+    "anecdoteType": "Type of anecdotes this person would use",
+    "opinionStyle": "How they express opinions",
+    "hesitations": ["I'm not certain that...", "It really depends on...", "Honestly..."],
+    "irregularities": ["Occasional verbless sentence", "Digressive parenthesis", "Starting with And/But"]
+  },
+  "expertSignals": {
+    "precisionMarkers": ["In my X projects...", "In Y years of..."],
+    "insiderReferences": ["What [pros] don't tell you...", "Between us..."],
+    "nuancePatterns": ["Unless...", "In the particular case of...", "However note that..."],
+    "concreteDetails": "Type of concrete details to include"
+  },
+  "examplesInTone": [
+    "A perfectly on-tone example sentence",
+    "Another example in the right style"
+  ],
+  "examplesOutOfTone": [
+    {"phrase": "It is absolutely essential to consider that...", "reason": "Too formal, empty superlative"},
+    {"phrase": "In our constantly evolving modern world...", "reason": "Absolute AI cliché"}
+  ],
+  "vocabulary": {
+    "preferred": ["words this person uses naturally"],
+    "avoided": ["overly formal or AI-sounding words"],
+    "jargon": ["technical terms they master"]
+  }
+}`,
+    profiler: `{
+  "summary": {
+    "oneSentence": "One-sentence summary of who this person is",
+    "keyInsight": "The most revealing/surprising insight",
+    "dataQuality": "low|medium|good|excellent"
+  },
+  "identity": {
+    "confirmed": ["Facts confirmed by ChatGPT"],
+    "inferred": ["Elements deduced with moderate confidence"],
+    "confidence": 0.8
+  },
+  "psychology": {
+    "brainType": {
+      "dominant": "rational|emotional|instinctive",
+      "secondary": "rational|emotional|instinctive|null",
+      "evidence": "Evidence for this diagnosis"
+    },
+    "behaviorProfile": {
+      "primary": "explorer|builder|director|negotiator",
+      "secondary": "explorer|builder|director|negotiator|null",
+      "evidence": "Evidence"
+    },
+    "thinkingSystem": {
+      "dominant": "system1|system2|mixed",
+      "context": "In what situations do they switch?"
+    },
+    "enneagramHint": {
+      "probableType": "1-9 or null if insufficient data",
+      "evidence": "Observed clues"
+    }
+  },
+  "motivations": {
+    "drivers": ["What makes them act"],
+    "fears": ["What they avoid/fear"],
+    "soncas": {
+      "primary": "security|pride|novelty|comfort|money|sympathy",
+      "secondary": "security|pride|novelty|comfort|money|sympathy|null"
+    }
+  },
+  "influenceTriggers": {
+    "mostSensitive": "social_proof|authority|scarcity|reciprocity|commitment|liking",
+    "leastSensitive": "social_proof|authority|scarcity|reciprocity|commitment|liking",
+    "evidence": "How it was detected"
+  },
+  "communication": {
+    "vak": "visual|auditory|kinesthetic",
+    "style": "Communication style description",
+    "sensitiveTopics": ["Topics to avoid or approach carefully"],
+    "engagementTips": ["How to engage them effectively"]
+  },
+  "archetype": {
+    "jungian": "hero|sage|explorer|rebel|magician|innocent|creator|ruler|caregiver|lover|jester|everyman",
+    "shadow": "Potential shadow or anti-pattern",
+    "evidence": "Evidence"
+  },
+  "vulnerabilities": {
+    "weaknesses": ["Observed weaknesses"],
+    "blindSpots": ["Cognitive blind spots"],
+    "stressType": "A|B|C|D",
+    "copingMechanisms": ["How they handle stress"]
+  },
+  "contradictions": [
+    {"observation1": "...", "observation2": "...", "interpretation": "What it suggests"}
+  ],
+  "marketingProfile": {
+    "vals": "innovator|thinker|achiever|experiencer|believer|striver|maker|survivor",
+    "buyingTriggers": ["What triggers a purchase/action decision"],
+    "messagingAngle": "How to speak to convince them",
+    "contentPreference": "Type of content they prefer to consume"
+  }
+}`,
+    freud: `{
+  "keyInsights": ["The 3 most important insights about this person"],
+  "blindSpots": ["What the main analysis might have missed"],
+  "confidence": {
+    "identity": 0.8,
+    "psychology": 0.7,
+    "motivations": 0.6
+  },
+  "alternativeHypothesis": "An alternative hypothesis about this person's profile",
+  "recommendations": ["How to better understand or communicate with this person"]
+}`,
+    jungArbitrator: `{
+  "consensus": ["Points both AIs agree on (high confidence)"],
+  "divergences": [
+    {"point": "Subject of disagreement", "gemini": "Gemini's position", "claude": "Claude's position", "verdict": "Your judgment"}
+  ],
+  "finalInsights": ["The most reliable insights after arbitration"],
+  "overallConfidence": 0.85,
+  "recommendation": "Final synthesis of this profile in 2-3 sentences"
+}`
+  }
+};
+
+// Helper to get browser language (for popup context)
+function getBrowserLanguage() {
+  if (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage) {
+    const uiLang = chrome.i18n.getUILanguage();
+    return uiLang.startsWith('fr') ? 'fr' : 'en';
+  }
+  // Fallback for non-extension context
+  if (typeof navigator !== 'undefined') {
+    return navigator.language?.startsWith('fr') ? 'fr' : 'en';
+  }
+  return 'en';
+}
 
 export class AnalysisPipeline {
   constructor(keys, options = {}) {
@@ -16,6 +466,12 @@ export class AnalysisPipeline {
     this.options = options;
     this.provider = options.provider || this.api.getDefaultProvider();
     this.modeMax = options.modeMax || false; // Enable dual AI analysis
+    this.language = options.language || getBrowserLanguage(); // i18n support
+  }
+
+  // Get localized prompt parts
+  p(agent) {
+    return PROMPTS[agent]?.[this.language] || PROMPTS[agent]?.en || {};
   }
 
   // ========== MAIN PIPELINE ==========
@@ -30,47 +486,47 @@ export class AnalysisPipeline {
     };
 
     try {
-      // Stage 1: Watson (Extracteur) - Extract persona-relevant data
-      onProgress('extracting', 0, 'Watson collecte les indices (E-E-A-T)...');
+      // Stage 1: Watson (Extractor) - Extract persona-relevant data
+      onProgress('extracting', 0, 'agent_watson_status'); // i18n key
       results.extractions = await this.runExtractor(memories, (done, total) => {
         onProgress('extracting', (done / total) * 100, `Extraction: ${done}/${total}`);
       });
       results.stages.extracting = { done: true, time: Date.now() - startTime };
 
-      // Stage 2: Kahneman (Statisticien) - Aggregate for persona building
-      onProgress('statistics', 0, 'Kahneman analyse les biais cognitifs...');
+      // Stage 2: Kahneman (Statistician) - Aggregate for persona building
+      onProgress('statistics', 0, 'agent_kahneman_status'); // i18n key
       results.statistics = this.runStatistician(results.extractions, memories);
       results.stages.statistics = { done: true, time: Date.now() - startTime };
-      onProgress('statistics', 100, 'Agrégation terminée');
+      onProgress('statistics', 100, 'agent_kahneman_status');
 
-      // Stage 3: Jung (Architecte) - Build mask structure
-      onProgress('architecting', 0, 'Jung construit le masque (persona)...');
+      // Stage 3: Jung (Architect) - Build mask structure
+      onProgress('architecting', 0, 'agent_jung_status'); // i18n key
       const maskCore = await this.runArchitect(memories, results.extractions, results.statistics);
       results.stages.architecting = { done: true, time: Date.now() - startTime };
-      onProgress('architecting', 100, 'Structure du masque créée');
+      onProgress('architecting', 100, 'agent_jung_status');
 
-      // Stage 4: Cialdini (Rédacteur) - Create writing charter
-      onProgress('chartering', 0, 'Cialdini redige la charte d\'ecriture...');
+      // Stage 4: Cialdini (Charterer) - Create writing charter
+      onProgress('chartering', 0, 'agent_cialdini_status'); // i18n key
       const writingCharter = await this.runCharterer(memories, results.extractions, maskCore);
       results.stages.chartering = { done: true, time: Date.now() - startTime };
-      onProgress('chartering', 100, 'Charte d\'écriture terminée');
+      onProgress('chartering', 100, 'agent_cialdini_status');
 
-      // Stage 5: Profileur Psychologique - Analyze interrogation (if available)
+      // Stage 5: Psychological Profiler - Analyze interrogation (if available)
       let psychProfile = null;
       if (this.options.interrogation && this.options.interrogation.length > 0) {
-        onProgress('profiling', 0, 'Le Profileur analyse les révélations ChatGPT...');
+        onProgress('profiling', 0, 'agent_profiler_status'); // i18n key
         psychProfile = await this.runPsychProfiler(this.options.interrogation);
         results.stages.profiling = { done: true, time: Date.now() - startTime };
-        onProgress('profiling', 100, 'Profil psychologique établi');
+        onProgress('profiling', 100, 'agent_profiler_status');
       }
 
       // Stage 6: MODE MAX - Freud vs Jung debate (if enabled and both keys available)
       let dualAnalysis = null;
       if (this.modeMax && this.keys.anthropic && this.keys.google) {
-        onProgress('dualAnalysis', 0, 'Freud vs Jung: Le debat legendaire...');
+        onProgress('dualAnalysis', 0, 'agent_freudJung_status'); // i18n key
         dualAnalysis = await this.runDualAnalysis(memories, results.statistics, maskCore, psychProfile);
         results.stages.dualAnalysis = { done: true, time: Date.now() - startTime };
-        onProgress('dualAnalysis', 100, 'Analyse croisee terminee');
+        onProgress('dualAnalysis', 100, 'agent_freudJung_status');
       }
 
       // Combine into final persona
@@ -85,7 +541,8 @@ export class AnalysisPipeline {
           interrogationResponses: this.options.interrogation?.length || 0,
           provider: this.provider,
           modeMax: this.modeMax,
-          version: '2.1'
+          language: this.language,
+          version: '2.3'
         }
       };
 
@@ -103,53 +560,25 @@ export class AnalysisPipeline {
     return results;
   }
 
-  // ========== AGENT 1: EXTRACTEUR E-E-A-T ==========
+  // ========== AGENT 1: WATSON (Extractor) ==========
   async runExtractor(memories, onProgress) {
     const extractorModel = APIClient.getModelForTask('labeler', this.provider);
     const extractions = new Array(memories.length);
+    const watson = this.p('watson');
 
-    // Parallel batch size (adjust based on rate limits)
-    const BATCH_SIZE = 10;
+    // INCREASED parallelization - 20 concurrent requests
+    const BATCH_SIZE = 20;
 
-    const EEAT_TAXONOMY = {
-      expertise: ['domaine', 'compétence', 'outil', 'méthodologie', 'certification', 'formation'],
-      experience: ['projet_réalisé', 'années_pratique', 'cas_concret', 'erreur_passée', 'leçon_apprise'],
-      authority: ['rôle', 'responsabilité', 'reconnaissance', 'publication', 'enseignement'],
-      trust: ['valeur', 'éthique', 'limite_avouée', 'transparence', 'opinion_honnête'],
-      voice: ['ton', 'registre', 'expression_favorite', 'humour', 'tic_langage']
-    };
+    const prompt = (memory) => `${watson.intro}
 
-    const prompt = (memory) => `Tu es WATSON, le fidèle assistant du Dr Holmes. Méthodique, observateur, tu collectes chaque indice sans rien laisser au hasard. Comme tu l'écrivais dans tes carnets: "Les petits détails sont infiniment les plus importants."
+${watson.taxonomy}
 
-Tu extrais des données pour construire un PERSONA AUTEUR crédible (E-E-A-T).
+${watson.privacy}
 
-TAXONOMIE E-E-A-T:
-- EXPERTISE: ${EEAT_TAXONOMY.expertise.join(', ')}
-- EXPERIENCE: ${EEAT_TAXONOMY.experience.join(', ')}
-- AUTHORITY: ${EEAT_TAXONOMY.authority.join(', ')}
-- TRUST: ${EEAT_TAXONOMY.trust.join(', ')}
-- VOICE: ${EEAT_TAXONOMY.voice.join(', ')}
-
-NIVEAUX DE CONFIDENTIALITÉ:
-- public: Information partageable publiquement (préférences générales, goûts, hobbies généraux)
-- semi-prive: Information personnelle mais pas sensible (ville, profession, projets)
-- prive: Information personnelle sensible (relations, santé légère, finances générales)
-- tres-prive: Information très sensible (données médicales, secrets, identifiants, famille proche)
-
-SOUVENIR À ANALYSER:
+${watson.instruction}
 "${memory.text}"
 
-EXTRAIS en JSON:
-{
-  "categories": ["expertise|experience|authority|trust|voice"],
-  "tags": ["tag1", "tag2"],
-  "extracted_fact": "Le fait brut extrait",
-  "persona_value": "Comment utiliser ça pour le persona",
-  "privacy_level": "public|semi-prive|prive|tres-prive",
-  "confidence": 0.8
-}
-
-JSON uniquement, pas de markdown.`;
+${watson.output}`;
 
     // Process single memory
     const processMemory = async (memory, index) => {
@@ -210,16 +639,16 @@ JSON uniquement, pas de markdown.`;
       completed += batch.length;
       onProgress(completed, memories.length);
 
-      // Small delay between batches to avoid rate limits
+      // Minimal delay between batches (rate limit protection)
       if (i + BATCH_SIZE < memories.length) {
-        await this.delay(200);
+        await this.delay(100); // Reduced from 200ms for speed
       }
     }
 
     return extractions.filter(e => e); // Remove any undefined
   }
 
-  // ========== AGENT 2: STATISTICIEN ==========
+  // ========== AGENT 2: KAHNEMAN (Statistician) ==========
   runStatistician(extractions, memories) {
     const stats = {
       total: extractions.length,
@@ -301,16 +730,12 @@ JSON uniquement, pas de markdown.`;
     return stats;
   }
 
-  // ========== AGENT 3: ARCHITECTE (MASK BUILDER) ==========
+  // ========== AGENT 3: JUNG (Architect / Mask Builder) ==========
   async runArchitect(memories, extractions, statistics) {
     const architectModel = APIClient.getModelForTask('profiler', this.provider);
+    const jung = this.p('jung');
 
     const memoriesSample = memories.slice(0, 60).map((m, i) => `[${i + 1}] ${m.text}`).join('\n');
-
-    const factsStr = statistics.rawFacts
-      .slice(0, 30)
-      .map(f => `- ${f.fact} → ${f.value}`)
-      .join('\n');
 
     const expertiseStr = statistics.expertiseDomains
       .map(e => `- ${e.fact}`)
@@ -324,82 +749,30 @@ JSON uniquement, pas de markdown.`;
       .map(t => `- ${t.fact}`)
       .join('\n');
 
-    const prompt = `Tu es CARL JUNG, psychiatre suisse, père de la psychologie analytique. Tu as consacré ta vie à explorer les profondeurs de l'âme humaine, les archétypes de l'inconscient collectif, et les masques (personas) que nous portons.
+    const prompt = `${jung.intro}
 
-Comme tu l'as écrit: "Qui regarde à l'extérieur, rêve. Qui regarde à l'intérieur, s'éveille."
+${jung.dataHeader}
 
-Aujourd'hui, tu construis une identité d'auteur crédible à partir de souvenirs réels. Tu cherches l'archétype dominant, l'ombre cachée, et le masque social cohérent.
-
-## DONNÉES D'ENTRÉE
-
-### Souvenirs bruts (${memories.length} au total):
+${jung.memoriesHeader} (${memories.length} total):
 ${memoriesSample}
 
-### Expertise détectée:
-${expertiseStr || 'Non détectée'}
+${jung.expertiseHeader}
+${expertiseStr || jung.notDetected}
 
-### Expérience détectée:
-${experienceStr || 'Non détectée'}
+${jung.experienceHeader}
+${experienceStr || jung.notDetected}
 
-### Signaux de confiance:
-${trustStr || 'Non détectés'}
+${jung.trustHeader}
+${trustStr || jung.notDetected}
 
-### Tags fréquents:
+${jung.tagsHeader}
 ${statistics.topTags?.slice(0, 15).map(t => t.tag).join(', ') || 'N/A'}
 
-## TON TRAVAIL
+${jung.task}
 
-Génère un JSON de persona CRÉDIBLE. L'objectif: créer une identité d'auteur qui peut écrire du contenu E-E-A-T compliant.
+${jung.outputHeader}
 
-RÈGLES:
-- Le persona doit être COHÉRENT avec les souvenirs
-- Les vulnérabilités sont OBLIGATOIRES (ça humanise)
-- Le bias doit être une VRAIE opinion défendable
-- La backstory doit expliquer POURQUOI cette personne parle de ces sujets
-
-## OUTPUT JSON (pas de markdown, juste le JSON):
-
-{
-  "mask": {
-    "type": "expert-independant|passionne|professionnel|petit-media|collectif",
-    "profile": {
-      "firstName": "Prénom authentique",
-      "lastName": "Nom crédible",
-      "ageRange": "35-45",
-      "location": "Région/Ville cohérente",
-      "background": "Parcours en 3-4 phrases basé sur les souvenirs",
-      "currentSituation": "Ce qu'il fait aujourd'hui"
-    },
-    "expertiseLevel": "amateur-eclaire|praticien|expert",
-    "expertiseDomains": ["domaine1", "domaine2"],
-    "bias": "Opinion/angle défendu (déduit des souvenirs)",
-    "mission": "Pourquoi cette personne partage son savoir",
-    "limits": ["Ce qu'elle ne prétend pas savoir 1", "Limite 2"],
-    "uniqueValue": "Ce qu'elle apporte que d'autres n'apportent pas"
-  },
-  "backstory": {
-    "trigger": "L'événement déclencheur qui a lancé son intérêt",
-    "experience": "Ce qui a construit son expertise (projets, années, cas)",
-    "motivation": "Pourquoi partager maintenant",
-    "source": "Comment elle collecte ses informations",
-    "vulnerability": "Erreur passée ou limite avouée (OBLIGATOIRE)",
-    "fullText": "Backstory complète rédigée (150-200 mots)"
-  },
-  "editorial": {
-    "angle": "expert-technique|pedagogue|passionne|pragmatique|conseiller",
-    "tone": {
-      "register": "formel|conversationnel|entre-deux",
-      "technicality": "technique|accessible|variable",
-      "warmth": "distant|neutre|chaleureux",
-      "assertiveness": "affirmatif|nuance|prudent"
-    },
-    "implicitValues": [
-      {"value": "Valeur 1", "manifestation": "Comment elle se manifeste"},
-      {"value": "Valeur 2", "manifestation": "Comment elle se manifeste"}
-    ],
-    "editorialPromise": "Ce que le lecteur trouve ici qu'il ne trouve pas ailleurs"
-  }
-}`;
+${PROMPTS.schemas.jung}`;
 
     const response = await this.api.call(prompt, {
       provider: this.provider,
@@ -420,9 +793,10 @@ RÈGLES:
     return this.getDefaultMask();
   }
 
-  // ========== AGENT 4: RÉDACTEUR (WRITING CHARTER) ==========
+  // ========== AGENT 4: CIALDINI (Writing Charter) ==========
   async runCharterer(memories, extractions, maskCore) {
     const chartererModel = APIClient.getModelForTask('detective', this.provider);
+    const cialdini = this.p('cialdini');
 
     const voiceExamples = extractions
       .filter(e => (e.categories || []).includes('voice'))
@@ -431,77 +805,21 @@ RÈGLES:
       .join('\n---\n');
 
     const memoriesSample = memories.slice(0, 30).map(m => m.text).join('\n---\n');
-
     const maskStr = JSON.stringify(maskCore, null, 2);
 
-    const prompt = `Tu es ROBERT CIALDINI, psychologue social et auteur de "Influence: The Psychology of Persuasion". Tu as passé 35 ans à étudier pourquoi les gens disent "oui" et comment l'écriture peut être plus persuasive.
+    const prompt = `${cialdini.intro}
 
-Tes 6 principes d'influence (réciprocité, engagement, preuve sociale, autorité, rareté, sympathie) sont maintenant universellement reconnus.
-
-Aujourd'hui, tu crées les règles d'écriture pour qu'une IA puisse écrire COMME cette personne - de façon authentique ET persuasive.
-
-## PERSONA DÉFINI:
+${cialdini.personaHeader}
 ${maskStr}
 
-## EXEMPLES DE VOIX (souvenirs révélant le style):
+${cialdini.voiceHeader}
 ${voiceExamples || memoriesSample}
 
-## TON TRAVAIL
+${cialdini.task}
 
-Génère la CHARTE D'ÉCRITURE en JSON. Cette charte sera utilisée pour prompter une IA à écrire des articles.
+${cialdini.outputHeader}
 
-RÈGLES:
-- Les patterns doivent être SPÉCIFIQUES et ACTIONNABLES
-- Les forbiddenPatterns sont les "tells" qui trahissent l'IA
-- Les humanSignals sont ce qui rend le texte vivant
-- Les expertSignals prouvent que l'auteur sait de quoi il parle
-
-## OUTPUT JSON (pas de markdown):
-
-{
-  "allowedPatterns": [
-    {"pattern": "Description du pattern", "example": "Phrase exemple"},
-    {"pattern": "Anecdote personnelle en ouverture", "example": "L'autre jour, j'ai..."},
-    {"pattern": "Question rhétorique", "example": "Mais est-ce vraiment le cas?"}
-  ],
-  "forbiddenPatterns": [
-    {"pattern": "Dans cet article nous allons", "reason": "Signal IA évident", "alternative": "Attaquer directement le sujet"},
-    {"pattern": "Il est important de noter que", "reason": "Formule creuse", "alternative": "Dire le truc directement"},
-    {"pattern": "En conclusion", "reason": "Trop mécanique", "alternative": "Terminer naturellement"},
-    {"pattern": "N'hésitez pas à", "reason": "Trop commercial", "alternative": "Impératif direct"}
-  ],
-  "rhythm": {
-    "avgSentenceLength": "15-20 mots",
-    "shortSentenceFrequency": "1 phrase courte tous les 3-4 phrases",
-    "maxLongSentence": 35,
-    "paragraphLength": "3-5 phrases"
-  },
-  "humanSignals": {
-    "anecdoteType": "Type d'anecdotes que cette personne utiliserait",
-    "opinionStyle": "Comment elle exprime ses opinions",
-    "hesitations": ["Je ne suis pas certain que...", "Ça dépend vraiment de...", "Honnêtement..."],
-    "irregularities": ["Phrase sans verbe occasionnelle", "Parenthèse digressive", "Début par Et/Mais"]
-  },
-  "expertSignals": {
-    "precisionMarkers": ["Sur mes X projets...", "En Y années de..."],
-    "insiderReferences": ["Ce que les [pros] ne disent pas...", "Entre nous..."],
-    "nuancePatterns": ["Sauf si...", "Dans le cas particulier de...", "Attention cependant..."],
-    "concreteDetails": "Type de détails concrets à inclure"
-  },
-  "examplesInTone": [
-    "Une phrase exemple parfaitement dans le ton du persona",
-    "Une autre phrase exemple dans le bon style"
-  ],
-  "examplesOutOfTone": [
-    {"phrase": "Il est absolument essentiel de considérer que...", "reason": "Trop formel, superlatif vide"},
-    {"phrase": "Dans notre monde moderne en constante évolution...", "reason": "Cliché IA absolu"}
-  ],
-  "vocabulary": {
-    "preferred": ["mots que cette personne utilise naturellement"],
-    "avoided": ["mots trop soutenus ou trop IA"],
-    "jargon": ["termes techniques qu'elle maîtrise"]
-  }
-}`;
+${PROMPTS.schemas.cialdini}`;
 
     const response = await this.api.call(prompt, {
       provider: this.provider,
@@ -521,112 +839,27 @@ RÈGLES:
     return this.getDefaultCharter();
   }
 
-  // ========== AGENT 5: PROFILEUR PSYCHOLOGIQUE ==========
+  // ========== AGENT 5: PSYCHOLOGICAL PROFILER ==========
   async runPsychProfiler(interrogationResponses) {
     const profilerModel = APIClient.getModelForTask('detective', this.provider);
-
-    // Organiser les réponses par catégorie
-    const responsesByCategory = {};
-    interrogationResponses.forEach(r => {
-      responsesByCategory[r.category] = r.response;
-    });
+    const profiler = this.p('profiler');
 
     const responsesText = interrogationResponses
-      .map(r => `## ${r.category.toUpperCase()}\nQuestion: ${r.id}\nRéponse ChatGPT:\n${r.response}`)
+      .map(r => `## ${r.category.toUpperCase()}\nQuestion: ${r.id}\nResponse:\n${r.response}`)
       .join('\n\n---\n\n');
 
-    const prompt = `Tu es PROFILEUR PSYCHOLOGIQUE. Tu analyses les réponses de ChatGPT sur un utilisateur pour dresser un profil complet.
+    const prompt = `${profiler.intro}
 
-## CONTEXTE
-Ces réponses viennent d'un interrogatoire de ChatGPT. On lui a demandé ce qu'il sait/déduit de l'utilisateur à partir de leurs conversations passées.
+${profiler.context}
 
-## RÉPONSES DE CHATGPT:
+${profiler.responsesHeader}
 ${responsesText}
 
-## TON TRAVAIL
+${profiler.task}
 
-Synthétise ces observations en un PROFIL PSYCHOLOGIQUE ACTIONNABLE.
+${profiler.outputHeader}
 
-RÈGLES:
-- Distingue les FAITS (observés) des INFÉRENCES (déduites)
-- Note le niveau de confiance pour chaque élément
-- Croise les informations: si plusieurs catégories pointent vers le même trait, c'est plus fiable
-- Identifie les CONTRADICTIONS éventuelles
-- Reste factuel et froid (pas de jugement moral)
-
-## OUTPUT JSON (pas de markdown):
-
-{
-  "summary": {
-    "oneSentence": "Résumé en une phrase de qui est cette personne",
-    "keyInsight": "L'insight le plus révélateur/surprenant",
-    "dataQuality": "faible|moyenne|bonne|excellente"
-  },
-  "identity": {
-    "confirmed": ["Faits confirmés par ChatGPT"],
-    "inferred": ["Éléments déduits avec confiance modérée"],
-    "confidence": 0.8
-  },
-  "psychology": {
-    "brainType": {
-      "dominant": "rationnel|emotionnel|instinctif",
-      "secondary": "rationnel|emotionnel|instinctif|null",
-      "evidence": "Preuves de ce diagnostic"
-    },
-    "behaviorProfile": {
-      "primary": "explorateur|batisseur|directeur|negociateur",
-      "secondary": "explorateur|batisseur|directeur|negociateur|null",
-      "evidence": "Preuves"
-    },
-    "thinkingSystem": {
-      "dominant": "systeme1|systeme2|mixte",
-      "context": "Dans quelles situations bascule-t-il?"
-    },
-    "enneagramHint": {
-      "probableType": "1-9 ou null si pas assez de données",
-      "evidence": "Indices observés"
-    }
-  },
-  "motivations": {
-    "drivers": ["Ce qui le fait agir"],
-    "fears": ["Ce qu'il évite/craint"],
-    "soncas": {
-      "primary": "securite|orgueil|nouveaute|confort|argent|sympathie",
-      "secondary": "securite|orgueil|nouveaute|confort|argent|sympathie|null"
-    }
-  },
-  "influenceTriggers": {
-    "mostSensitive": "preuve_sociale|autorite|rarete|reciprocite|engagement|affection",
-    "leastSensitive": "preuve_sociale|autorite|rarete|reciprocite|engagement|affection",
-    "evidence": "Comment on l'a détecté"
-  },
-  "communication": {
-    "vak": "visuel|auditif|kinesthesique",
-    "style": "Description du style de communication",
-    "sensitiveTopics": ["Sujets à éviter ou aborder avec précaution"],
-    "engagementTips": ["Comment l'engager efficacement"]
-  },
-  "archetype": {
-    "jungian": "heros|sage|explorateur|rebelle|magicien|innocent|createur|dirigeant|protecteur|amoureux|bouffon|ordinaire",
-    "shadow": "Ombre ou anti-pattern potentiel",
-    "evidence": "Preuves"
-  },
-  "vulnerabilities": {
-    "weaknesses": ["Faiblesses observées"],
-    "blindSpots": ["Angles morts cognitifs"],
-    "stressType": "A|B|C|D",
-    "copingMechanisms": ["Comment il gère le stress"]
-  },
-  "contradictions": [
-    {"observation1": "...", "observation2": "...", "interpretation": "Ce que ça suggère"}
-  ],
-  "marketingProfile": {
-    "vals": "innovateur|penseur|achiever|experiencer|croyant|striver|maker|survivor",
-    "buyingTriggers": ["Ce qui déclenche une décision d'achat/action"],
-    "messagingAngle": "Comment lui parler pour le convaincre",
-    "contentPreference": "Type de contenu qu'il préfère consommer"
-  }
-}`;
+${PROMPTS.schemas.profiler}`;
 
     const response = await this.api.call(prompt, {
       provider: this.provider,
@@ -665,52 +898,39 @@ RÈGLES:
     };
   }
 
-  // ========== MODE MAX: DUAL AI ANALYSIS ==========
+  // ========== MODE MAX: DUAL AI ANALYSIS (Freud vs Jung) ==========
   async runDualAnalysis(memories, statistics, maskCore, psychProfile) {
     const geminiModel = APIClient.getModels().google.pro; // Gemini 2.5 Pro
     const claudeModel = APIClient.getModels().anthropic.sonnet; // Claude Sonnet 4.5
+    const freud = this.p('freud');
+    const jungArb = this.p('jungArbitrator');
 
     // Prepare the synthesis prompt for both AIs
     const memoriesSample = memories.slice(0, 40).map(m => m.text).join('\n');
     const statsStr = JSON.stringify(statistics?.topTags?.slice(0, 10) || [], null, 2);
     const maskStr = JSON.stringify(maskCore?.mask || {}, null, 2);
-    const psychStr = psychProfile ? JSON.stringify(psychProfile.summary || {}, null, 2) : 'Non disponible';
+    const psychStr = psychProfile ? JSON.stringify(psychProfile.summary || {}, null, 2) : freud.notAvailable;
 
-    const analysisPrompt = `Tu es SIGMUND FREUD, père de la psychanalyse. Tu as révolutionné notre compréhension de l'esprit humain avec le ça, le moi, le surmoi, les pulsions et les mécanismes de défense.
+    const analysisPrompt = `${freud.intro}
 
-Comme tu l'as écrit: "L'inconscient est le véritable psychique réel, aussi inconnu de nous par sa nature interne que le réel du monde extérieur."
-
-Analyse ce profil utilisateur avec ton regard clinique caractéristique. Cherche les motivations inconscientes, les désirs refoulés, les mécanismes de défense.
-
-## DONNÉES BRUTES
-Souvenirs (échantillon de ${memories.length} total):
+${freud.dataHeader}
+${freud.memoriesHeader} ${memories.length} total):
 ${memoriesSample}
 
-## STATISTIQUES
-Tags fréquents: ${statsStr}
+${freud.statsHeader}
+${freud.tagsHeader} ${statsStr}
 
-## PERSONA GÉNÉRÉ
+${freud.personaHeader}
 ${maskStr}
 
-## PROFIL PSYCHOLOGIQUE
+${freud.psychHeader}
 ${psychStr}
 
-## TA MISSION
-Donne TON analyse indépendante de cette personne en JSON:
+${freud.task}
 
-{
-  "keyInsights": ["Les 3 insights les plus importants sur cette personne"],
-  "blindSpots": ["Ce que l'analyse principale pourrait avoir manqué"],
-  "confidence": {
-    "identity": 0.8,
-    "psychology": 0.7,
-    "motivations": 0.6
-  },
-  "alternativeHypothesis": "Une hypothèse alternative sur le profil de cette personne",
-  "recommendations": ["Comment mieux comprendre ou communiquer avec cette personne"]
-}
+${PROMPTS.schemas.freud}
 
-JSON uniquement, pas de markdown.`;
+JSON only, no markdown.`;
 
     try {
       // Run both analyses in parallel
@@ -733,32 +953,19 @@ JSON uniquement, pas de markdown.`;
       const claudeAnalysis = parseJson(claudeResponse);
 
       // Now run arbitration with Claude as Jung responding to Freud
-      const arbitrationPrompt = `Tu es CARL JUNG. Tu viens de lire l'analyse de ton ancien mentor Sigmund FREUD sur ce patient.
+      const arbitrationPrompt = `${jungArb.intro}
 
-Vous avez eu vos désaccords célèbres - toi tu crois aux archétypes et à l'inconscient collectif, lui reste fixé sur les pulsions et le refoulement. Mais vous partagez un respect mutuel pour la rigueur clinique.
-
-Comme tu l'as écrit après votre rupture: "La rencontre de deux personnalités est comme le contact de deux substances chimiques: s'il y a réaction, les deux en sont transformées."
-
-## ANALYSE DE FREUD (via Gemini):
+${jungArb.freudHeader}
 ${JSON.stringify(geminiAnalysis, null, 2)}
 
-## TON ANALYSE INITIALE (via Claude):
+${jungArb.yourHeader}
 ${JSON.stringify(claudeAnalysis, null, 2)}
 
-## TA MISSION
-Compare ton analyse avec celle de Freud. Où êtes-vous d'accord? Où vos perspectives divergent-elles? Produis une synthèse qui intègre les deux visions:
+${jungArb.task}
 
-{
-  "consensus": ["Points sur lesquels les deux IA sont d'accord (haute confiance)"],
-  "divergences": [
-    {"point": "Sujet de désaccord", "gemini": "Position Gemini", "claude": "Position Claude", "verdict": "Ton jugement"}
-  ],
-  "finalInsights": ["Les insights les plus fiables après arbitrage"],
-  "overallConfidence": 0.85,
-  "recommendation": "La synthèse finale de ce profil en 2-3 phrases"
-}
+${PROMPTS.schemas.jungArbitrator}
 
-JSON uniquement.`;
+JSON only.`;
 
       const arbitrationResponse = await this.api.callAnthropic(arbitrationPrompt, {
         model: claudeModel,

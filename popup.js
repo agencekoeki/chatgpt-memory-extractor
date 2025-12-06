@@ -411,10 +411,13 @@ async function startAnalysis() {
     // Check if Mode MAX is enabled
     const modeMax = document.getElementById('enableModeMax')?.checked || false;
 
+    // Get browser language for bilingual prompts
+    const language = chrome.i18n.getUILanguage()?.startsWith('fr') ? 'fr' : 'en';
+
     const response = await chrome.runtime.sendMessage({
       action: 'startAnalysis',
       memories: memories,
-      options: { modeMax }
+      options: { modeMax, language }
     });
 
     if (response.error) {
@@ -486,7 +489,9 @@ function handleMessage(request, sender, sendResponse) {
 function handleAnalysisProgress(data) {
   const { stage, progress, message } = data;
 
-  document.getElementById('analyzingStage').textContent = message;
+  // Translate message if it's an i18n key (starts with "agent_" or "Extraction:")
+  const translatedMessage = message.startsWith('agent_') ? t(message) : message;
+  document.getElementById('analyzingStage').textContent = translatedMessage;
   document.getElementById('analyzeProgressBar').style.width = progress + '%';
 
   // Update agent states
