@@ -586,7 +586,7 @@ async function navigateToMemories() {
 
 // ========== EXTRACTION ==========
 async function extractMemories() {
-  log('Extraction des éléments mémorisés...', 'info');
+  log('🔍 Extraction des éléments mémorisés...', 'info');
   updateStatus('loading', 'Extraction en cours...');
 
   // Cherche la modale des mémoires avec différents sélecteurs
@@ -598,26 +598,43 @@ async function extractMemories() {
     log('Modale trouvée via data-testid="modal-memories"', 'success');
   }
 
-  // MÉTHODE 2: Popover avec titre "Éléments mémorisés"
+  // MÉTHODE 2: Popover Radix avec titre mémoires
   if (!modal) {
-    const popovers = document.querySelectorAll('.popover, [class*="popover"], [data-radix-popper-content-wrapper] > div');
-    log(`${popovers.length} popover(s) trouvé(s)`, 'debug');
+    const radixPopovers = document.querySelectorAll('[data-radix-popper-content-wrapper] > div, [data-radix-menu-content]');
+    log(`${radixPopovers.length} radix popover(s) trouvé(s)`, 'debug');
 
-    for (const pop of popovers) {
+    for (const pop of radixPopovers) {
       const hasMemoryTitle = pop.textContent?.includes('Éléments mémorisés') ||
                              pop.textContent?.includes('Memorized') ||
                              pop.textContent?.includes('Remplissage');
-      const hasTable = pop.querySelector('table');
-
-      if (hasMemoryTitle && hasTable) {
+      if (hasMemoryTitle && pop.offsetHeight > 0) {
         modal = pop;
-        log('Modale trouvée via popover + titre', 'success');
+        log('Modale trouvée via Radix popover', 'success');
         break;
       }
     }
   }
 
-  // MÉTHODE 3: Cherche une table avec le bon contenu (visible memories)
+  // MÉTHODE 3: Tout élément fixed/absolute avec contenu mémoire
+  if (!modal) {
+    const fixedElements = document.querySelectorAll('.fixed, .absolute, [class*="popover"], [class*="modal"]');
+    log(`${fixedElements.length} éléments fixed/absolute trouvés`, 'debug');
+
+    for (const el of fixedElements) {
+      if (el.offsetHeight > 200 && el.offsetWidth > 200) {
+        const hasMemoryContent = el.textContent?.includes('Éléments mémorisés') ||
+                                 el.textContent?.includes('Remplissage');
+        const hasTable = el.querySelector('table');
+        if (hasMemoryContent && hasTable) {
+          modal = el;
+          log('Modale trouvée via fixed/absolute + table', 'success');
+          break;
+        }
+      }
+    }
+  }
+
+  // MÉTHODE 4: Cherche une table avec le bon contenu (visible memories)
   if (!modal) {
     const tables = document.querySelectorAll('table');
     log(`${tables.length} table(s) trouvée(s)`, 'debug');
@@ -629,15 +646,22 @@ async function extractMemories() {
         const firstRowText = rows[0]?.textContent?.trim() || '';
         // Les mémoires commencent souvent par un nom ou "Le/La/Les"
         if (firstRowText.length > 50 && !firstRowText.includes('Faire référence')) {
-          modal = table.closest('[class*="popover"]') || table.closest('[data-state="open"]') || table.parentElement?.parentElement;
-          log(`Modale trouvée via table avec ${rows.length} lignes`, 'success');
-          break;
+          // Remonter pour trouver le container
+          modal = table.closest('[class*="fixed"]') ||
+                  table.closest('[class*="absolute"]') ||
+                  table.closest('[class*="popover"]') ||
+                  table.closest('[data-state="open"]') ||
+                  table.parentElement?.parentElement?.parentElement;
+          if (modal) {
+            log(`Modale trouvée via table avec ${rows.length} lignes`, 'success');
+            break;
+          }
         }
       }
     }
   }
 
-  // MÉTHODE 4 (fallback): role="dialog"
+  // MÉTHODE 5 (fallback): role="dialog"
   if (!modal) {
     const dialogs = document.querySelectorAll('[role="dialog"]');
     for (const dialog of dialogs) {
@@ -649,8 +673,26 @@ async function extractMemories() {
     }
   }
 
+  // MÉTHODE 6 (dernier recours): chercher directement la table visible
   if (!modal) {
-    log('Aucune modale mémoires trouvée (essayé: data-testid, popover, table, dialog)', 'error');
+    const allTables = document.querySelectorAll('table');
+    for (const table of allTables) {
+      if (table.offsetHeight > 100 && table.querySelectorAll('tr').length > 1) {
+        // Vérifier que c'est bien des mémoires
+        const tableText = table.textContent || '';
+        if (tableText.length > 200 && !tableText.includes('Faire référence')) {
+          modal = table;
+          log('Modale trouvée via table directe (dernier recours)', 'success');
+          break;
+        }
+      }
+    }
+  }
+
+  if (!modal) {
+    log('❌ Aucune modale mémoires trouvée après 6 méthodes', 'error');
+    // Log ce qui existe sur la page pour debug
+    log(`Page contient: ${document.querySelectorAll('table').length} tables, ${document.querySelectorAll('[role="dialog"]').length} dialogs`, 'debug');
     return { success: false, error: 'Modale mémoires non trouvée', memories: [] };
   }
 
@@ -908,16 +950,55 @@ async function autoExtract() {
   }
 
   state.isExtracting = true;
+  log('🚀 autoExtract() démarré', 'info');
 
   try {
+    // Détection améliorée de la modale mémoires (plusieurs méthodes)
+    let isMemoryModal = false;
+
+    // Méthode 1: role="dialog" avec texte mémoire
     let modal = document.querySelector('[role="dialog"]');
-    let isMemoryModal = modal && (
-      modal.textContent?.includes('mémorisés') ||
-      modal.textContent?.includes('Remplissage') ||
-      modal.textContent?.includes('Memory')
-    );
+    if (modal) {
+      const modalText = modal.textContent || '';
+      isMemoryModal = modalText.includes('mémorisés') ||
+                      modalText.includes('Remplissage') ||
+                      modalText.includes('Memory');
+      if (isMemoryModal) log('Modale trouvée via role="dialog"', 'success');
+    }
+
+    // Méthode 2: Popover Radix avec table de mémoires
+    if (!isMemoryModal) {
+      const popovers = document.querySelectorAll('[data-radix-popper-content-wrapper], [class*="popover"], .fixed[class*="z-"]');
+      for (const pop of popovers) {
+        if (pop.offsetHeight > 0 &&
+            (pop.textContent?.includes('mémorisés') || pop.textContent?.includes('Remplissage'))) {
+          isMemoryModal = true;
+          log('Modale trouvée via popover/radix', 'success');
+          break;
+        }
+      }
+    }
+
+    // Méthode 3: Chercher une table visible avec du contenu mémoire
+    if (!isMemoryModal) {
+      const tables = document.querySelectorAll('table');
+      for (const table of tables) {
+        const parent = table.closest('[class*="fixed"], [class*="absolute"], [role="dialog"]');
+        if (parent && table.querySelectorAll('tr').length > 1) {
+          const parentText = parent.textContent || '';
+          if (parentText.includes('mémorisés') || parentText.includes('Remplissage')) {
+            isMemoryModal = true;
+            log('Modale trouvée via table parent', 'success');
+            break;
+          }
+        }
+      }
+    }
+
+    log(`Modale mémoires détectée: ${isMemoryModal}`, isMemoryModal ? 'success' : 'warning');
 
     if (!isMemoryModal) {
+      log('Navigation vers les mémoires...', 'info');
       const navResult = await navigateToMemories();
       if (!navResult.success) {
         state.isExtracting = false;
