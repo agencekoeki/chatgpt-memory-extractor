@@ -289,6 +289,19 @@
           </div>
           <h3>Pret a analyser</h3>
           <p id="analyzeReadyCount">191 souvenirs a traiter</p>
+
+          <!-- Mode MAX option -->
+          <div class="mode-max-option hidden" id="modeMaxOption">
+            <label class="checkbox-container">
+              <input type="checkbox" id="enableModeMax">
+              <span class="checkmark"></span>
+              <span class="checkbox-label">
+                <strong>Mode MAX</strong>
+                <small>Analyse croisee Claude + Gemini 2.5 Pro</small>
+              </span>
+            </label>
+          </div>
+
           <button class="btn-action" id="btnStartAnalyze">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="5 3 19 12 5 21 5 3"/>
@@ -321,6 +334,10 @@
             <div class="agent-item" id="agent-charterer">
               <span class="agent-dot"></span>
               <span>Redacteur</span>
+            </div>
+            <div class="agent-item hidden" id="agent-dual">
+              <span class="agent-dot"></span>
+              <span>Claude + Gemini</span>
             </div>
           </div>
           <div class="progress-bar-mini">

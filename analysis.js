@@ -1,14 +1,17 @@
-// ChatGPT Memory Extractor - Persona Pipeline v2.0
+// ChatGPT Memory Extractor - Persona Pipeline v2.1
 // Generates E-E-A-T compliant Author Identity Mask from memories
-// The 4 Agents: Extracteur, Statisticien, Architecte, Rédacteur
+// The 5 Agents: Extracteur, Statisticien, Architecte, Rédacteur, Profileur
+// Mode MAX: Dual AI analysis (Claude + Gemini) with arbitration
 
 import { APIClient } from './api.js';
 
 export class AnalysisPipeline {
   constructor(keys, options = {}) {
     this.api = new APIClient(keys);
+    this.keys = keys;
     this.options = options;
     this.provider = options.provider || this.api.getDefaultProvider();
+    this.modeMax = options.modeMax || false; // Enable dual AI analysis
   }
 
   // ========== MAIN PIPELINE ==========
@@ -57,16 +60,27 @@ export class AnalysisPipeline {
         onProgress('profiling', 100, 'Profil psychologique établi');
       }
 
+      // Stage 6: MODE MAX - Dual AI Analysis (if enabled and both keys available)
+      let dualAnalysis = null;
+      if (this.modeMax && this.keys.anthropic && this.keys.google) {
+        onProgress('dualAnalysis', 0, 'Mode MAX: Analyse croisee Claude + Gemini...');
+        dualAnalysis = await this.runDualAnalysis(memories, results.statistics, maskCore, psychProfile);
+        results.stages.dualAnalysis = { done: true, time: Date.now() - startTime };
+        onProgress('dualAnalysis', 100, 'Analyse croisee terminee');
+      }
+
       // Combine into final persona
       results.persona = {
         ...maskCore,
         writingCharter,
         psychProfile,
+        dualAnalysis,
         metadata: {
           generatedAt: new Date().toISOString(),
           memoriesAnalyzed: memories.length,
           interrogationResponses: this.options.interrogation?.length || 0,
           provider: this.provider,
+          modeMax: this.modeMax,
           version: '2.1'
         }
       };
@@ -635,6 +649,122 @@ RÈGLES:
       contradictions: [],
       marketingProfile: null
     };
+  }
+
+  // ========== MODE MAX: DUAL AI ANALYSIS ==========
+  async runDualAnalysis(memories, statistics, maskCore, psychProfile) {
+    const geminiModel = APIClient.getModels().google.pro; // Gemini 2.5 Pro
+    const claudeModel = APIClient.getModels().anthropic.sonnet; // Claude Sonnet 4.5
+
+    // Prepare the synthesis prompt for both AIs
+    const memoriesSample = memories.slice(0, 40).map(m => m.text).join('\n');
+    const statsStr = JSON.stringify(statistics?.topTags?.slice(0, 10) || [], null, 2);
+    const maskStr = JSON.stringify(maskCore?.mask || {}, null, 2);
+    const psychStr = psychProfile ? JSON.stringify(psychProfile.summary || {}, null, 2) : 'Non disponible';
+
+    const analysisPrompt = `Tu es un analyste comportemental expert. Analyse ce profil utilisateur et donne ton diagnostic.
+
+## DONNÉES BRUTES
+Souvenirs (échantillon de ${memories.length} total):
+${memoriesSample}
+
+## STATISTIQUES
+Tags fréquents: ${statsStr}
+
+## PERSONA GÉNÉRÉ
+${maskStr}
+
+## PROFIL PSYCHOLOGIQUE
+${psychStr}
+
+## TA MISSION
+Donne TON analyse indépendante de cette personne en JSON:
+
+{
+  "keyInsights": ["Les 3 insights les plus importants sur cette personne"],
+  "blindSpots": ["Ce que l'analyse principale pourrait avoir manqué"],
+  "confidence": {
+    "identity": 0.8,
+    "psychology": 0.7,
+    "motivations": 0.6
+  },
+  "alternativeHypothesis": "Une hypothèse alternative sur le profil de cette personne",
+  "recommendations": ["Comment mieux comprendre ou communiquer avec cette personne"]
+}
+
+JSON uniquement, pas de markdown.`;
+
+    try {
+      // Run both analyses in parallel
+      const [geminiResponse, claudeResponse] = await Promise.all([
+        this.api.callGoogle(analysisPrompt, { model: geminiModel, maxTokens: 2000 }),
+        this.api.callAnthropic(analysisPrompt, { model: claudeModel, maxTokens: 2000 })
+      ]);
+
+      // Parse responses
+      const parseJson = (text) => {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { return JSON.parse(match[0]); }
+          catch { return null; }
+        }
+        return null;
+      };
+
+      const geminiAnalysis = parseJson(geminiResponse);
+      const claudeAnalysis = parseJson(claudeResponse);
+
+      // Now run arbitration with Claude
+      const arbitrationPrompt = `Tu es l'arbitre final. Deux IA ont analysé le même profil utilisateur. Compare et synthétise.
+
+## ANALYSE GEMINI 2.5 PRO:
+${JSON.stringify(geminiAnalysis, null, 2)}
+
+## ANALYSE CLAUDE:
+${JSON.stringify(claudeAnalysis, null, 2)}
+
+## TA MISSION
+Compare les deux analyses et produis une synthèse:
+
+{
+  "consensus": ["Points sur lesquels les deux IA sont d'accord (haute confiance)"],
+  "divergences": [
+    {"point": "Sujet de désaccord", "gemini": "Position Gemini", "claude": "Position Claude", "verdict": "Ton jugement"}
+  ],
+  "finalInsights": ["Les insights les plus fiables après arbitrage"],
+  "overallConfidence": 0.85,
+  "recommendation": "La synthèse finale de ce profil en 2-3 phrases"
+}
+
+JSON uniquement.`;
+
+      const arbitrationResponse = await this.api.callAnthropic(arbitrationPrompt, {
+        model: claudeModel,
+        maxTokens: 2000
+      });
+
+      const arbitration = parseJson(arbitrationResponse);
+
+      return {
+        gemini: geminiAnalysis,
+        claude: claudeAnalysis,
+        arbitration,
+        metadata: {
+          geminiModel,
+          claudeModel,
+          timestamp: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      console.error('Dual analysis error:', error);
+      return {
+        error: error.message,
+        gemini: null,
+        claude: null,
+        arbitration: null
+      };
+    }
   }
 
   // ========== DEFAULTS ==========

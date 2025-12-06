@@ -712,6 +712,22 @@ function handleProgress(data) {
       setNavState('persona', 'complete');
       setNavState('charter', 'loading');
       break;
+
+    case 'profiling':
+      setAgentState('charterer', 'complete', 'Charte terminee');
+      setAgentState('profiler', 'loading', 'Analyse psychologique...');
+      setNavState('charter', 'complete');
+      setNavState('psychprofile', 'loading');
+      break;
+
+    case 'dualAnalysis':
+      setAgentState('charterer', 'complete', 'Charte terminee');
+      setAgentState('dual-report', 'loading', 'Analyse croisee Claude + Gemini...');
+      // Show the nav item
+      const navDual = document.getElementById('nav-dualanalysis');
+      if (navDual) navDual.classList.remove('hidden');
+      setNavState('dualanalysis', 'loading');
+      break;
   }
 }
 
@@ -812,6 +828,13 @@ function revealAllData(results, memories) {
       setAgentState('profiler', 'waiting', 'Pas d\'interrogatoire');
     }
   }, 2200);
+
+  // Reveal dual analysis (Mode MAX - if available)
+  setTimeout(() => {
+    if (results.persona?.dualAnalysis) {
+      renderDualAnalysis(results.persona.dualAnalysis);
+    }
+  }, 2600);
 }
 
 // ========== RENDER PERSONA ==========
@@ -1495,6 +1518,198 @@ function triggerLightTrace() {
   trace.classList.remove('active');
   void trace.offsetWidth;
   trace.classList.add('active');
+}
+
+// ========== RENDER DUAL ANALYSIS (Mode MAX) ==========
+function renderDualAnalysis(dualAnalysis) {
+  const navItem = document.getElementById('nav-dualanalysis');
+  const arbitrationContainer = document.getElementById('arbitrationSummary');
+  const claudeContainer = document.getElementById('claudeAnalysis');
+  const geminiContainer = document.getElementById('geminiAnalysis');
+  const divergencesContainer = document.getElementById('divergencesList');
+
+  // No dual analysis available
+  if (!dualAnalysis || dualAnalysis.error) {
+    return;
+  }
+
+  // Show the nav item
+  if (navItem) {
+    navItem.classList.remove('hidden');
+  }
+
+  // Render arbitration summary
+  if (arbitrationContainer && dualAnalysis.arbitration) {
+    const arb = dualAnalysis.arbitration;
+    let html = '';
+
+    // Final recommendation
+    if (arb.recommendation) {
+      html += `
+        <div style="font-size: 16px; color: var(--text-primary); margin-bottom: 16px; line-height: 1.7;">
+          ${escapeHtml(arb.recommendation)}
+        </div>
+      `;
+    }
+
+    // Overall confidence
+    if (arb.overallConfidence) {
+      const confPct = Math.round(arb.overallConfidence * 100);
+      html += `
+        <div class="psych-badge" style="margin-bottom: 16px;">
+          Confiance globale: ${confPct}%
+        </div>
+      `;
+    }
+
+    // Consensus points
+    if (arb.consensus?.length > 0) {
+      html += `
+        <div style="margin-top: 16px;">
+          <strong style="color: var(--success); font-size: 14px;">Points de consensus:</strong>
+          <ul class="psych-list" style="margin-top: 8px;">
+            ${arb.consensus.map(c => `<li style="color: var(--text-secondary);">${escapeHtml(c)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Final insights
+    if (arb.finalInsights?.length > 0) {
+      html += `
+        <div style="margin-top: 16px;">
+          <strong style="color: var(--accent-light); font-size: 14px;">Insights valides:</strong>
+          <ul class="psych-list" style="margin-top: 8px;">
+            ${arb.finalInsights.map(i => `<li style="color: var(--text-primary);">${escapeHtml(i)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    arbitrationContainer.innerHTML = html || '<p style="color: var(--text-muted);">Pas de synthese disponible.</p>';
+    revealCard('card-arbitration');
+  }
+
+  // Render Claude analysis
+  if (claudeContainer && dualAnalysis.claude) {
+    claudeContainer.innerHTML = renderAIAnalysis(dualAnalysis.claude, 'Claude');
+    revealCard('card-claude-analysis');
+  }
+
+  // Render Gemini analysis
+  if (geminiContainer && dualAnalysis.gemini) {
+    geminiContainer.innerHTML = renderAIAnalysis(dualAnalysis.gemini, 'Gemini');
+    revealCard('card-gemini-analysis');
+  }
+
+  // Render divergences
+  if (divergencesContainer && dualAnalysis.arbitration?.divergences?.length > 0) {
+    let html = '';
+    dualAnalysis.arbitration.divergences.forEach(div => {
+      html += `
+        <div class="pattern-card" style="margin-bottom: 12px;">
+          <div class="pattern-header">
+            <span class="pattern-name">${escapeHtml(div.point || 'Point de desaccord')}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+            <div>
+              <div style="font-size: 12px; color: #c4b5fd; margin-bottom: 4px;">Claude:</div>
+              <div style="font-size: 14px; color: var(--text-secondary);">${escapeHtml(div.claude || '-')}</div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #60a5fa; margin-bottom: 4px;">Gemini:</div>
+              <div style="font-size: 14px; color: var(--text-secondary);">${escapeHtml(div.gemini || '-')}</div>
+            </div>
+          </div>
+          ${div.verdict ? `
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+              <div style="font-size: 12px; color: var(--accent); margin-bottom: 4px;">Verdict:</div>
+              <div style="font-size: 14px; color: var(--text-primary);">${escapeHtml(div.verdict)}</div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    });
+    divergencesContainer.innerHTML = html;
+    revealCard('card-divergences');
+  }
+
+  // Update agent state
+  setAgentState('dual-report', 'complete', 'Analyse croisee terminee');
+}
+
+// Helper: Render individual AI analysis
+function renderAIAnalysis(analysis, aiName) {
+  if (!analysis) {
+    return `<p style="color: var(--text-muted);">Pas d'analyse ${aiName} disponible.</p>`;
+  }
+
+  let html = '';
+
+  // Key insights
+  if (analysis.keyInsights?.length > 0) {
+    html += `
+      <div style="margin-bottom: 16px;">
+        <strong style="color: var(--accent-light); font-size: 13px;">Insights cles:</strong>
+        <ul class="psych-list" style="margin-top: 8px;">
+          ${analysis.keyInsights.map(i => `<li>${escapeHtml(i)}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  // Blind spots
+  if (analysis.blindSpots?.length > 0) {
+    html += `
+      <div style="margin-bottom: 16px;">
+        <strong style="color: var(--warning); font-size: 13px;">Angles morts detectes:</strong>
+        <ul class="psych-list" style="margin-top: 8px;">
+          ${analysis.blindSpots.map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  // Confidence scores
+  if (analysis.confidence) {
+    const conf = analysis.confidence;
+    html += `
+      <div style="margin-bottom: 16px;">
+        <strong style="color: var(--text-muted); font-size: 13px;">Niveaux de confiance:</strong>
+        <div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+          ${conf.identity ? `<span class="psych-badge secondary">Identite: ${Math.round(conf.identity * 100)}%</span>` : ''}
+          ${conf.psychology ? `<span class="psych-badge secondary">Psychologie: ${Math.round(conf.psychology * 100)}%</span>` : ''}
+          ${conf.motivations ? `<span class="psych-badge secondary">Motivations: ${Math.round(conf.motivations * 100)}%</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Alternative hypothesis
+  if (analysis.alternativeHypothesis) {
+    html += `
+      <div style="margin-bottom: 16px;">
+        <strong style="color: var(--text-muted); font-size: 13px;">Hypothese alternative:</strong>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 4px; font-style: italic;">
+          "${escapeHtml(analysis.alternativeHypothesis)}"
+        </p>
+      </div>
+    `;
+  }
+
+  // Recommendations
+  if (analysis.recommendations?.length > 0) {
+    html += `
+      <div>
+        <strong style="color: var(--success); font-size: 13px;">Recommandations:</strong>
+        <ul class="psych-list" style="margin-top: 8px;">
+          ${analysis.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  return html || '<p style="color: var(--text-muted);">Analyse vide.</p>';
 }
 
 // ========== EXPORT ==========

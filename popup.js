@@ -234,6 +234,8 @@ function updateAnalyzeScreen() {
   const done = document.getElementById('analyzeDone');
   const btnReport = document.getElementById('btnToReport');
   const btnSkip = document.getElementById('btnSkipAnalyze');
+  const modeMaxOption = document.getElementById('modeMaxOption');
+  const agentDual = document.getElementById('agent-dual');
 
   // Hide all states
   noApi.classList.add('hidden');
@@ -241,10 +243,16 @@ function updateAnalyzeScreen() {
   analyzing.classList.add('hidden');
   done.classList.add('hidden');
   btnSkip.classList.add('hidden');
+  modeMaxOption?.classList.add('hidden');
 
   if (isAnalyzing) {
     analyzing.classList.remove('hidden');
     btnReport.disabled = true;
+
+    // Show dual agent if mode MAX is enabled
+    if (document.getElementById('enableModeMax')?.checked) {
+      agentDual?.classList.remove('hidden');
+    }
   } else if (analysisResults?.success) {
     done.classList.remove('hidden');
     btnReport.disabled = false;
@@ -256,6 +264,25 @@ function updateAnalyzeScreen() {
     ready.classList.remove('hidden');
     document.getElementById('analyzeReadyCount').textContent = `${memories.length} souvenirs a traiter`;
     btnReport.disabled = true;
+
+    // Show Mode MAX option if both Anthropic and Google keys are available
+    checkModeMaxAvailability();
+  }
+}
+
+// Check if Mode MAX is available (requires both Anthropic and Google keys)
+async function checkModeMaxAvailability() {
+  try {
+    const keys = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
+    const modeMaxOption = document.getElementById('modeMaxOption');
+
+    if (keys?.anthropic && keys?.google) {
+      modeMaxOption?.classList.remove('hidden');
+    } else {
+      modeMaxOption?.classList.add('hidden');
+    }
+  } catch (e) {
+    console.error('Error checking Mode MAX availability:', e);
   }
 }
 
@@ -361,9 +388,13 @@ async function startAnalysis() {
     // Set first agent as active
     setAgentState('extractor', 'active');
 
+    // Check if Mode MAX is enabled
+    const modeMax = document.getElementById('enableModeMax')?.checked || false;
+
     const response = await chrome.runtime.sendMessage({
       action: 'startAnalysis',
-      memories: memories
+      memories: memories,
+      options: { modeMax }
     });
 
     if (response.error) {
@@ -416,6 +447,10 @@ function handleMessage(request, sender, sendResponse) {
         setAgentState('statistician', 'done');
         setAgentState('architect', 'done');
         setAgentState('charterer', 'done');
+        // Mark dual as done if Mode MAX was used
+        if (request.results.persona?.dualAnalysis) {
+          setAgentState('dual', 'done');
+        }
 
         // Go to complete screen after a short delay
         setTimeout(() => {
@@ -450,6 +485,15 @@ function handleAnalysisProgress(data) {
     case 'chartering':
       setAgentState('architect', 'done');
       setAgentState('charterer', 'active');
+      break;
+    case 'profiling':
+      setAgentState('charterer', 'done');
+      break;
+    case 'dualAnalysis':
+      setAgentState('charterer', 'done');
+      setAgentState('dual', 'active');
+      // Show the dual agent indicator
+      document.getElementById('agent-dual')?.classList.remove('hidden');
       break;
   }
 }

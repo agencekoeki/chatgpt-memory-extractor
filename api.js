@@ -161,9 +161,9 @@ export class APIClient {
         thinking: 'o1-preview'                   // Best reasoning
       },
       google: {
-        flash: 'gemini-1.5-flash',               // Fast, cheap
-        pro: 'gemini-1.5-pro',                   // Mid-tier
-        deepthink: 'gemini-1.5-pro'              // Best (same as pro for now)
+        flash: 'gemini-2.0-flash',               // Fast, cheap (Gemini 2.0)
+        pro: 'gemini-2.5-pro-preview-06-05',     // Best - Gemini 2.5 Pro
+        deepthink: 'gemini-2.5-pro-preview-06-05' // Best reasoning
       }
     };
   }

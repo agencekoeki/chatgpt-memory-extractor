@@ -1826,6 +1826,14 @@
           </svg>
           Extractions
         </a>
+        <a class="nav-item hidden" data-section="dualanalysis" id="nav-dualanalysis">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="12" r="3"/>
+            <path d="M9 12h6"/>
+          </svg>
+          Analyse Croisee
+        </a>
       </nav>
 
       <div class="sidebar-section">
@@ -2036,6 +2044,58 @@
         </div>
         <div class="card blurred" id="card-extractions">
           <div id="extractionsList">
+            <!-- Will be filled by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- DUAL ANALYSIS SECTION (Mode MAX) -->
+      <section class="section" id="section-dualanalysis">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="12" r="3"/>
+            <path d="M9 12h6"/>
+          </svg>
+          Analyse Croisee
+          <span class="section-subtitle">(Mode MAX: Claude + Gemini)</span>
+        </div>
+        <div class="agent-indicator" id="agent-dual-report">
+          <div class="agent-dot"></div>
+          <span>Analyse croisee en attente...</span>
+        </div>
+
+        <!-- Arbitration summary -->
+        <div class="card blurred" id="card-arbitration">
+          <div class="card-title">Synthese - Points de consensus</div>
+          <div id="arbitrationSummary">
+            <!-- Will be filled by JS -->
+          </div>
+        </div>
+
+        <!-- Side by side analysis -->
+        <div class="psych-grid" id="dualAnalysisGrid">
+          <!-- Claude analysis -->
+          <div class="card blurred" id="card-claude-analysis">
+            <div class="card-title" style="color: #c4b5fd;">Claude Sonnet</div>
+            <div id="claudeAnalysis">
+              <!-- Will be filled by JS -->
+            </div>
+          </div>
+
+          <!-- Gemini analysis -->
+          <div class="card blurred" id="card-gemini-analysis">
+            <div class="card-title" style="color: #60a5fa;">Gemini 2.5 Pro</div>
+            <div id="geminiAnalysis">
+              <!-- Will be filled by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Divergences -->
+        <div class="card blurred" id="card-divergences">
+          <div class="card-title">Points de divergence</div>
+          <div id="divergencesList">
             <!-- Will be filled by JS -->
           </div>
         </div>
