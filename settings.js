@@ -10,15 +10,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ========== MODEL DEFINITIONS ==========
 const LABELER_MODELS = {
-  anthropic: { value: 'haiku', label: 'Claude 3.5 Haiku' },
+  anthropic: { value: 'haiku', label: 'Claude 4.5 Haiku' },
   openai: { value: 'mini', label: 'GPT-4o Mini' },
   google: { value: 'flash', label: 'Gemini 2.0 Flash' }
 };
 
 const PROFILER_MODELS = {
   anthropic: [
-    { value: 'opus', label: 'Claude Opus 4' },
-    { value: 'sonnet', label: 'Claude Sonnet 4.5' }
+    { value: 'opus', label: 'Claude 4.5 Opus' },
+    { value: 'sonnet', label: 'Claude 4.5 Sonnet' }
   ],
   openai: [
     { value: 'standard', label: 'GPT-4o' }
