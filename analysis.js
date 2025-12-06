@@ -499,26 +499,38 @@ export class AnalysisPipeline {
       results.stages.statistics = { done: true, time: Date.now() - startTime };
       onProgress('statistics', 100, 'agent_kahneman_status');
 
-      // Stage 3: Jung (Architect) - Build mask structure
-      onProgress('architecting', 0, 'agent_jung_status'); // i18n key
-      const maskCore = await this.runArchitect(memories, results.extractions, results.statistics);
+      // ====== PARALLEL EXECUTION: Jung + Profiler ======
+      // Stage 3 (Jung) and Stage 5 (Profiler) can run in parallel
+      // as they don't depend on each other
+
+      onProgress('architecting', 0, 'agent_jung_status');
+      const hasInterrogation = this.options.interrogation && this.options.interrogation.length > 0;
+      if (hasInterrogation) {
+        onProgress('profiling', 0, 'agent_profiler_status');
+      }
+
+      // Start both in parallel
+      const jungPromise = this.runArchitect(memories, results.extractions, results.statistics);
+      const profilerPromise = hasInterrogation
+        ? this.runPsychProfiler(this.options.interrogation)
+        : Promise.resolve(null);
+
+      // Wait for both to complete
+      const [maskCore, psychProfile] = await Promise.all([jungPromise, profilerPromise]);
+
       results.stages.architecting = { done: true, time: Date.now() - startTime };
       onProgress('architecting', 100, 'agent_jung_status');
 
-      // Stage 4: Cialdini (Charterer) - Create writing charter
-      onProgress('chartering', 0, 'agent_cialdini_status'); // i18n key
-      const writingCharter = await this.runCharterer(memories, results.extractions, maskCore);
-      results.stages.chartering = { done: true, time: Date.now() - startTime };
-      onProgress('chartering', 100, 'agent_cialdini_status');
-
-      // Stage 5: Psychological Profiler - Analyze interrogation (if available)
-      let psychProfile = null;
-      if (this.options.interrogation && this.options.interrogation.length > 0) {
-        onProgress('profiling', 0, 'agent_profiler_status'); // i18n key
-        psychProfile = await this.runPsychProfiler(this.options.interrogation);
+      if (hasInterrogation) {
         results.stages.profiling = { done: true, time: Date.now() - startTime };
         onProgress('profiling', 100, 'agent_profiler_status');
       }
+
+      // Stage 4: Cialdini (Charterer) - depends on maskCore from Jung
+      onProgress('chartering', 0, 'agent_cialdini_status');
+      const writingCharter = await this.runCharterer(memories, results.extractions, maskCore);
+      results.stages.chartering = { done: true, time: Date.now() - startTime };
+      onProgress('chartering', 100, 'agent_cialdini_status');
 
       // Stage 6: MODE MAX - Freud vs Jung debate (if enabled and both keys available)
       let dualAnalysis = null;
