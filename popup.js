@@ -121,6 +121,7 @@ function setupListeners() {
     }
   });
   document.getElementById('btnSettings').addEventListener('click', openSettings);
+  document.getElementById('btnResetSplash').addEventListener('click', restart);
 
   // Consent screen
   document.getElementById('btnBackFromConsent').addEventListener('click', () => goToScreen('splash'));
