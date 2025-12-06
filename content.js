@@ -1,15 +1,20 @@
 // ChatGPT Memory Extractor - Content Script v3.12 DIAGNOSTIC
 // Mode debug pour identifier les bons sélecteurs
 
-// Évite double chargement
+// Évite double chargement - wrap dans IIFE pour pouvoir return
+(function() {
 if (window.__memoryExtractorLoaded) {
   console.log('[MemoryExtractor] Déjà chargé, skip');
-} else {
-  window.__memoryExtractorLoaded = true;
+  return; // Exit silently
 }
+window.__memoryExtractorLoaded = true;
 
-let isExtracting = false;
-let diagnosticMode = true; // Active les logs détaillés
+// State variables - using window to avoid redeclaration issues
+window.__memoryExtractorState = window.__memoryExtractorState || {
+  isExtracting: false,
+  diagnosticMode: true
+};
+const state = window.__memoryExtractorState;
 
 // ========== LOGGING ==========
 function log(message, level = 'info') {
@@ -898,11 +903,11 @@ async function runDiagnosticOnly() {
 
 // ========== MAIN AUTO EXTRACT ==========
 async function autoExtract() {
-  if (isExtracting) {
+  if (state.isExtracting) {
     return { error: true, message: 'Extraction déjà en cours' };
   }
 
-  isExtracting = true;
+  state.isExtracting = true;
 
   try {
     let modal = document.querySelector('[role="dialog"]');
@@ -915,7 +920,7 @@ async function autoExtract() {
     if (!isMemoryModal) {
       const navResult = await navigateToMemories();
       if (!navResult.success) {
-        isExtracting = false;
+        state.isExtracting = false;
         return { error: true, message: navResult.error };
       }
     }
@@ -927,11 +932,11 @@ async function autoExtract() {
       result
     }).catch(() => {});
 
-    isExtracting = false;
+    state.isExtracting = false;
     return { started: true };
 
   } catch (error) {
-    isExtracting = false;
+    state.isExtracting = false;
     log('Erreur: ' + error.message, 'error');
     return { error: true, message: error.message };
   }
@@ -1643,3 +1648,5 @@ window.__memoryExtractor = {
   runDiagnosticOnly,
   startInterrogation
 };
+
+})(); // End of IIFE wrapper
