@@ -6,6 +6,8 @@ let currentScreen = 'splash';
 let memories = [];
 let analysisResults = null;
 let hasApiKeys = false;
+let hasConsented = false;
+let apiProvider = null;
 let isOnChatGPT = false;
 let isExtracting = false;
 let isAnalyzing = false;
@@ -13,6 +15,7 @@ let isAnalyzing = false;
 // ========== DOM ELEMENTS ==========
 const screens = {
   splash: document.getElementById('screen-splash'),
+  consent: document.getElementById('screen-consent'),
   extract: document.getElementById('screen-extract'),
   analyze: document.getElementById('screen-analyze'),
   complete: document.getElementById('screen-complete')
@@ -51,9 +54,18 @@ async function loadState() {
     // Load analysis results
     analysisResults = await chrome.runtime.sendMessage({ action: 'getAnalysisResults' });
 
-    // Check API keys
+    // Check API keys and determine provider
     const keys = await chrome.runtime.sendMessage({ action: 'getApiKeys' });
     hasApiKeys = keys && (keys.anthropic || keys.openai || keys.google);
+
+    // Determine which provider is configured
+    if (keys?.anthropic) apiProvider = 'Anthropic (Claude)';
+    else if (keys?.openai) apiProvider = 'OpenAI (GPT)';
+    else if (keys?.google) apiProvider = 'Google (Gemini)';
+
+    // Load consent status
+    const storage = await chrome.storage.local.get(['hasConsented']);
+    hasConsented = storage.hasConsented || false;
 
     // Check if on ChatGPT
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -77,9 +89,20 @@ async function loadState() {
 
 // ========== SETUP LISTENERS ==========
 function setupListeners() {
-  // Splash screen
-  document.getElementById('btnDiscover').addEventListener('click', () => goToScreen('extract'));
+  // Splash screen - go to consent if not consented, else extract
+  document.getElementById('btnDiscover').addEventListener('click', () => {
+    if (hasConsented) {
+      goToScreen('extract');
+    } else {
+      updateConsentScreen();
+      goToScreen('consent');
+    }
+  });
   document.getElementById('btnSettings').addEventListener('click', openSettings);
+
+  // Consent screen
+  document.getElementById('btnBackFromConsent').addEventListener('click', () => goToScreen('splash'));
+  document.getElementById('btnAcceptConsent').addEventListener('click', acceptConsent);
 
   // Extract screen
   document.getElementById('btnStartExtract').addEventListener('click', startExtraction);
@@ -367,6 +390,20 @@ function setAgentState(agentId, state) {
   if (state) {
     agent.classList.add(state);
   }
+}
+
+// ========== CONSENT ==========
+function updateConsentScreen() {
+  const providerEl = document.getElementById('consentProvider');
+  if (providerEl && apiProvider) {
+    providerEl.textContent = apiProvider;
+  }
+}
+
+async function acceptConsent() {
+  hasConsented = true;
+  await chrome.storage.local.set({ hasConsented: true });
+  goToScreen('extract');
 }
 
 // ========== ACTIONS ==========

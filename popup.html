@@ -38,6 +38,62 @@
       </div>
     </div>
 
+    <!-- ========== SCREEN 1.5: CONSENT ========== -->
+    <div class="screen" id="screen-consent">
+      <div class="screen-header">
+        <h2>Comment ca marche</h2>
+        <p class="screen-subtitle">Avant de commencer, voici ce qui va se passer</p>
+      </div>
+
+      <div class="screen-content consent-content">
+        <div class="consent-step">
+          <div class="consent-icon">1</div>
+          <div class="consent-text">
+            <strong>Extraction</strong>
+            <span>On recupere les memoires stockees par ChatGPT</span>
+          </div>
+        </div>
+
+        <div class="consent-step">
+          <div class="consent-icon">2</div>
+          <div class="consent-text">
+            <strong>Interrogatoire</strong> <span class="optional-badge">optionnel</span>
+            <span>On pose des questions a ChatGPT pour savoir ce qu'il deduit de vous</span>
+          </div>
+        </div>
+
+        <div class="consent-step">
+          <div class="consent-icon">3</div>
+          <div class="consent-text">
+            <strong>Analyse</strong>
+            <span>Toutes ces donnees sont envoyees a <strong id="consentProvider">l'API choisie</strong> pour construire votre profil</span>
+          </div>
+        </div>
+
+        <div class="consent-warning">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div>
+            <strong>Vos donnees transitent par un service tiers</strong>
+            <p>Elles ne sont PAS analysees localement. Elles sont envoyees a l'API que vous avez configuree (Anthropic, OpenAI ou Google).</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen-actions">
+        <button class="btn-secondary" id="btnBackFromConsent">Retour</button>
+        <button class="btn-primary" id="btnAcceptConsent">
+          J'ai compris, continuer
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <!-- ========== SCREEN 2: EXTRACTION ========== -->
     <div class="screen" id="screen-extract">
       <div class="screen-header">
@@ -299,7 +355,7 @@
     </div>
 
     <!-- VERSION -->
-    <div class="version-badge">v4.9</div>
+    <div class="version-badge">v5.0</div>
   </div>
 
   <script src="popup.js"></script>
