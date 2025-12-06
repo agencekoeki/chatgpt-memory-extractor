@@ -1,7 +1,11 @@
-// ChatGPT Memory Extractor - Persona Pipeline v2.1
+// ChatGPT Memory Extractor - Persona Pipeline v2.2
 // Generates E-E-A-T compliant Author Identity Mask from memories
-// The 5 Agents: Extracteur, Statisticien, Architecte, Rédacteur, Profileur
-// Mode MAX: Dual AI analysis (Claude + Gemini) with arbitration
+// The 5 Agents with their legendary identities:
+//   - Watson (Extracteur): Le fidèle assistant qui collecte les indices
+//   - Kahneman (Statisticien): Nobel d'économie, expert des biais cognitifs
+//   - Jung (Architecte): Père des archétypes et de l'inconscient collectif
+//   - Cialdini (Rédacteur): Expert mondial de la persuasion et influence
+//   - Freud vs Jung (Mode MAX): Le débat légendaire entre deux titans
 
 import { APIClient } from './api.js';
 
@@ -26,27 +30,27 @@ export class AnalysisPipeline {
     };
 
     try {
-      // Stage 1: Extracteur E-E-A-T - Extract persona-relevant data
-      onProgress('extracting', 0, 'L\'Extracteur analyse chaque souvenir (E-E-A-T)...');
+      // Stage 1: Watson (Extracteur) - Extract persona-relevant data
+      onProgress('extracting', 0, 'Watson collecte les indices (E-E-A-T)...');
       results.extractions = await this.runExtractor(memories, (done, total) => {
         onProgress('extracting', (done / total) * 100, `Extraction: ${done}/${total}`);
       });
       results.stages.extracting = { done: true, time: Date.now() - startTime };
 
-      // Stage 2: Statisticien - Aggregate for persona building
-      onProgress('statistics', 0, 'Le Statisticien agrège les données...');
+      // Stage 2: Kahneman (Statisticien) - Aggregate for persona building
+      onProgress('statistics', 0, 'Kahneman analyse les biais cognitifs...');
       results.statistics = this.runStatistician(results.extractions, memories);
       results.stages.statistics = { done: true, time: Date.now() - startTime };
       onProgress('statistics', 100, 'Agrégation terminée');
 
-      // Stage 3: Architecte - Build mask structure
-      onProgress('architecting', 0, 'L\'Architecte construit le masque...');
+      // Stage 3: Jung (Architecte) - Build mask structure
+      onProgress('architecting', 0, 'Jung construit le masque (persona)...');
       const maskCore = await this.runArchitect(memories, results.extractions, results.statistics);
       results.stages.architecting = { done: true, time: Date.now() - startTime };
       onProgress('architecting', 100, 'Structure du masque créée');
 
-      // Stage 4: Rédacteur - Create writing charter
-      onProgress('chartering', 0, 'Le Rédacteur crée la charte d\'écriture...');
+      // Stage 4: Cialdini (Rédacteur) - Create writing charter
+      onProgress('chartering', 0, 'Cialdini redige la charte d\'ecriture...');
       const writingCharter = await this.runCharterer(memories, results.extractions, maskCore);
       results.stages.chartering = { done: true, time: Date.now() - startTime };
       onProgress('chartering', 100, 'Charte d\'écriture terminée');
@@ -60,10 +64,10 @@ export class AnalysisPipeline {
         onProgress('profiling', 100, 'Profil psychologique établi');
       }
 
-      // Stage 6: MODE MAX - Dual AI Analysis (if enabled and both keys available)
+      // Stage 6: MODE MAX - Freud vs Jung debate (if enabled and both keys available)
       let dualAnalysis = null;
       if (this.modeMax && this.keys.anthropic && this.keys.google) {
-        onProgress('dualAnalysis', 0, 'Mode MAX: Analyse croisee Claude + Gemini...');
+        onProgress('dualAnalysis', 0, 'Freud vs Jung: Le debat legendaire...');
         dualAnalysis = await this.runDualAnalysis(memories, results.statistics, maskCore, psychProfile);
         results.stages.dualAnalysis = { done: true, time: Date.now() - startTime };
         onProgress('dualAnalysis', 100, 'Analyse croisee terminee');
@@ -115,7 +119,9 @@ export class AnalysisPipeline {
       voice: ['ton', 'registre', 'expression_favorite', 'humour', 'tic_langage']
     };
 
-    const prompt = (memory) => `Tu extrais des données pour construire un PERSONA AUTEUR crédible (E-E-A-T).
+    const prompt = (memory) => `Tu es WATSON, le fidèle assistant du Dr Holmes. Méthodique, observateur, tu collectes chaque indice sans rien laisser au hasard. Comme tu l'écrivais dans tes carnets: "Les petits détails sont infiniment les plus importants."
+
+Tu extrais des données pour construire un PERSONA AUTEUR crédible (E-E-A-T).
 
 TAXONOMIE E-E-A-T:
 - EXPERTISE: ${EEAT_TAXONOMY.expertise.join(', ')}
@@ -318,7 +324,11 @@ JSON uniquement, pas de markdown.`;
       .map(t => `- ${t.fact}`)
       .join('\n');
 
-    const prompt = `Tu es ARCHITECTE DE PERSONA. Tu construis une identité d'auteur crédible à partir de souvenirs réels.
+    const prompt = `Tu es CARL JUNG, psychiatre suisse, père de la psychologie analytique. Tu as consacré ta vie à explorer les profondeurs de l'âme humaine, les archétypes de l'inconscient collectif, et les masques (personas) que nous portons.
+
+Comme tu l'as écrit: "Qui regarde à l'extérieur, rêve. Qui regarde à l'intérieur, s'éveille."
+
+Aujourd'hui, tu construis une identité d'auteur crédible à partir de souvenirs réels. Tu cherches l'archétype dominant, l'ombre cachée, et le masque social cohérent.
 
 ## DONNÉES D'ENTRÉE
 
@@ -424,7 +434,11 @@ RÈGLES:
 
     const maskStr = JSON.stringify(maskCore, null, 2);
 
-    const prompt = `Tu es RÉDACTEUR DE CHARTE. Tu crées les règles d'écriture pour qu'une IA puisse écrire COMME cette personne.
+    const prompt = `Tu es ROBERT CIALDINI, psychologue social et auteur de "Influence: The Psychology of Persuasion". Tu as passé 35 ans à étudier pourquoi les gens disent "oui" et comment l'écriture peut être plus persuasive.
+
+Tes 6 principes d'influence (réciprocité, engagement, preuve sociale, autorité, rareté, sympathie) sont maintenant universellement reconnus.
+
+Aujourd'hui, tu crées les règles d'écriture pour qu'une IA puisse écrire COMME cette personne - de façon authentique ET persuasive.
 
 ## PERSONA DÉFINI:
 ${maskStr}
@@ -662,7 +676,11 @@ RÈGLES:
     const maskStr = JSON.stringify(maskCore?.mask || {}, null, 2);
     const psychStr = psychProfile ? JSON.stringify(psychProfile.summary || {}, null, 2) : 'Non disponible';
 
-    const analysisPrompt = `Tu es un analyste comportemental expert. Analyse ce profil utilisateur et donne ton diagnostic.
+    const analysisPrompt = `Tu es SIGMUND FREUD, père de la psychanalyse. Tu as révolutionné notre compréhension de l'esprit humain avec le ça, le moi, le surmoi, les pulsions et les mécanismes de défense.
+
+Comme tu l'as écrit: "L'inconscient est le véritable psychique réel, aussi inconnu de nous par sa nature interne que le réel du monde extérieur."
+
+Analyse ce profil utilisateur avec ton regard clinique caractéristique. Cherche les motivations inconscientes, les désirs refoulés, les mécanismes de défense.
 
 ## DONNÉES BRUTES
 Souvenirs (échantillon de ${memories.length} total):
@@ -714,17 +732,21 @@ JSON uniquement, pas de markdown.`;
       const geminiAnalysis = parseJson(geminiResponse);
       const claudeAnalysis = parseJson(claudeResponse);
 
-      // Now run arbitration with Claude
-      const arbitrationPrompt = `Tu es l'arbitre final. Deux IA ont analysé le même profil utilisateur. Compare et synthétise.
+      // Now run arbitration with Claude as Jung responding to Freud
+      const arbitrationPrompt = `Tu es CARL JUNG. Tu viens de lire l'analyse de ton ancien mentor Sigmund FREUD sur ce patient.
 
-## ANALYSE GEMINI 2.5 PRO:
+Vous avez eu vos désaccords célèbres - toi tu crois aux archétypes et à l'inconscient collectif, lui reste fixé sur les pulsions et le refoulement. Mais vous partagez un respect mutuel pour la rigueur clinique.
+
+Comme tu l'as écrit après votre rupture: "La rencontre de deux personnalités est comme le contact de deux substances chimiques: s'il y a réaction, les deux en sont transformées."
+
+## ANALYSE DE FREUD (via Gemini):
 ${JSON.stringify(geminiAnalysis, null, 2)}
 
-## ANALYSE CLAUDE:
+## TON ANALYSE INITIALE (via Claude):
 ${JSON.stringify(claudeAnalysis, null, 2)}
 
 ## TA MISSION
-Compare les deux analyses et produis une synthèse:
+Compare ton analyse avec celle de Freud. Où êtes-vous d'accord? Où vos perspectives divergent-elles? Produis une synthèse qui intègre les deux visions:
 
 {
   "consensus": ["Points sur lesquels les deux IA sont d'accord (haute confiance)"],
